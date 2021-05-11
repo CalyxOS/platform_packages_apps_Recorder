@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder.ui;
+package org.calyxos.recorder.ui;
 
 import android.content.Context;
 import android.content.res.Configuration;
@@ -25,8 +25,8 @@ import android.graphics.Path;
 import android.util.AttributeSet;
 import android.view.View;
 
-import org.lineageos.recorder.R;
-import org.lineageos.recorder.service.IAudioVisualizer;
+import org.calyxos.recorder.R;
+import org.calyxos.recorder.service.IAudioVisualizer;
 
 public class WaveFormView extends View implements IAudioVisualizer {
     private static final int DEFAULT_NUMBER_OF_WAVES = 5;

@@ -13,9 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder.service;
+package org.calyxos.recorder.list;
 
-public interface IAudioVisualizer {
+import android.net.Uri;
 
-    void setAmplitude(int amplitude);
+import androidx.annotation.NonNull;
+
+public interface RecordingItemCallbacks {
+    void onPlay(@NonNull Uri uri);
+    void onShare(@NonNull Uri uri);
+    void onDelete(int index, @NonNull Uri uri);
+    void onRename(int index, @NonNull Uri uri, @NonNull String currentName);
 }

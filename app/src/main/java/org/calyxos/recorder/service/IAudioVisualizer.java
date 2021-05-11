@@ -13,24 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder.service;
+package org.calyxos.recorder.service;
 
-import java.io.File;
-import java.io.IOException;
+public interface IAudioVisualizer {
 
-public interface SoundRecording {
-
-    void startRecording(File file) throws IOException;
-
-    boolean stopRecording();
-
-    boolean pauseRecording();
-
-    boolean resumeRecording();
-
-    int getCurrentAmplitude();
-
-    String getMimeType();
-
-    String getFileExtension();
+    void setAmplitude(int amplitude);
 }

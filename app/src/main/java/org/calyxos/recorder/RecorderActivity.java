@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder;
+package org.calyxos.recorder;
 
 import android.Manifest;
 import android.content.BroadcastReceiver;
@@ -40,12 +40,12 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import org.lineageos.recorder.service.RecorderBinder;
-import org.lineageos.recorder.service.SoundRecorderService;
-import org.lineageos.recorder.ui.WaveFormView;
-import org.lineageos.recorder.utils.LocationHelper;
-import org.lineageos.recorder.utils.OnBoardingHelper;
-import org.lineageos.recorder.utils.Utils;
+import org.calyxos.recorder.service.RecorderBinder;
+import org.calyxos.recorder.service.SoundRecorderService;
+import org.calyxos.recorder.ui.WaveFormView;
+import org.calyxos.recorder.utils.LocationHelper;
+import org.calyxos.recorder.utils.OnBoardingHelper;
+import org.calyxos.recorder.utils.Utils;
 
 import java.util.ArrayList;
 

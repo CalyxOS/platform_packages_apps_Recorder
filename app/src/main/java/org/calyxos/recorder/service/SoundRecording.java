@@ -13,15 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder.list;
+package org.calyxos.recorder.service;
 
-import android.net.Uri;
+import java.io.File;
+import java.io.IOException;
 
-import androidx.annotation.NonNull;
+public interface SoundRecording {
 
-public interface RecordingItemCallbacks {
-    void onPlay(@NonNull Uri uri);
-    void onShare(@NonNull Uri uri);
-    void onDelete(int index, @NonNull Uri uri);
-    void onRename(int index, @NonNull Uri uri, @NonNull String currentName);
+    void startRecording(File file) throws IOException;
+
+    boolean stopRecording();
+
+    boolean pauseRecording();
+
+    boolean resumeRecording();
+
+    int getCurrentAmplitude();
+
+    String getMimeType();
+
+    String getFileExtension();
 }

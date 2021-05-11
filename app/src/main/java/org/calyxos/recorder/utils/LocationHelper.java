@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder.utils;
+package org.calyxos.recorder.utils;
 
 import android.content.Context;
 import android.location.Address;

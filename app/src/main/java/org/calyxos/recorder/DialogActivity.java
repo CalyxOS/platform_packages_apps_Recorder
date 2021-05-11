@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder;
+package org.calyxos.recorder;
 
 import android.Manifest;
 import android.content.Intent;
@@ -29,8 +29,8 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 
-import org.lineageos.recorder.utils.LastRecordHelper;
-import org.lineageos.recorder.utils.Utils;
+import org.calyxos.recorder.utils.LastRecordHelper;
+import org.calyxos.recorder.utils.Utils;
 
 public class DialogActivity extends AppCompatActivity {
     public static final String EXTRA_TITLE = "dialogTitle";

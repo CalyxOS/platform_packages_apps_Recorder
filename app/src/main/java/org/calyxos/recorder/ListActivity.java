@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder;
+package org.calyxos.recorder;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -32,11 +32,11 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.lineageos.recorder.list.RecordingItemCallbacks;
-import org.lineageos.recorder.list.RecordingsAdapter;
-import org.lineageos.recorder.utils.LastRecordHelper;
-import org.lineageos.recorder.utils.MediaProviderHelper;
-import org.lineageos.recorder.utils.Utils;
+import org.calyxos.recorder.list.RecordingItemCallbacks;
+import org.calyxos.recorder.list.RecordingsAdapter;
+import org.calyxos.recorder.utils.LastRecordHelper;
+import org.calyxos.recorder.utils.MediaProviderHelper;
+import org.calyxos.recorder.utils.Utils;
 
 public class ListActivity extends AppCompatActivity implements RecordingItemCallbacks {
     private static final String TYPE_AUDIO = "audio/*";

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder.utils;
+package org.calyxos.recorder.utils;
 
 import android.app.NotificationManager;
 import android.content.Context;
@@ -27,9 +27,9 @@ import android.widget.EditText;
 
 import androidx.appcompat.app.AlertDialog;
 
-import org.lineageos.recorder.DialogActivity;
-import org.lineageos.recorder.R;
-import org.lineageos.recorder.service.SoundRecorderService;
+import org.calyxos.recorder.DialogActivity;
+import org.calyxos.recorder.R;
+import org.calyxos.recorder.service.SoundRecorderService;
 
 import java.util.function.Consumer;
 

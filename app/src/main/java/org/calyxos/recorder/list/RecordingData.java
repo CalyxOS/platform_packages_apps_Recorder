@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder.list;
+package org.calyxos.recorder.list;
 
 import android.net.Uri;
 
