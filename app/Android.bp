@@ -36,4 +36,8 @@ android_app {
 
     sdk_version: "33",
 
+    aaptflags: [
+        "--rename-manifest-package",
+        "org.calyxos.recorder",
+    ],
 }
