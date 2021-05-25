@@ -17,7 +17,7 @@ android {
     namespace = "org.lineageos.recorder"
 
     defaultConfig {
-        applicationId = "org.lineageos.recorder"
+        applicationId = "org.calyxos.recorder"
         minSdk = 31
         targetSdk = 35
         versionCode = 1
