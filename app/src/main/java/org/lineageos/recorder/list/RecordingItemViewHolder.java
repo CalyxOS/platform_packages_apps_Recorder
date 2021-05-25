@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.calyxos.recorder.list;
+package org.lineageos.recorder.list;
 
 import android.annotation.SuppressLint;
 import android.net.Uri;
@@ -29,7 +29,7 @@ import androidx.appcompat.view.menu.MenuPopupHelper;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.calyxos.recorder.R;
+import org.lineageos.recorder.R;
 
 import java.text.SimpleDateFormat;
 import java.util.Locale;

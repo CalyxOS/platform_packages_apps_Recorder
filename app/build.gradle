@@ -4,7 +4,7 @@ android {
     compileSdkVersion 30
 
     defaultConfig {
-        applicationId "org.calyxos.recorder"
+        applicationId "org.lineageos.recorder"
         minSdkVersion 29
         targetSdkVersion 30
         versionCode 1

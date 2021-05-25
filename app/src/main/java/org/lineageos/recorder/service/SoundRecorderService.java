@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.calyxos.recorder.service;
+package org.lineageos.recorder.service;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -35,12 +35,12 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
-import org.calyxos.recorder.ListActivity;
-import org.calyxos.recorder.R;
-import org.calyxos.recorder.RecorderActivity;
-import org.calyxos.recorder.utils.LastRecordHelper;
-import org.calyxos.recorder.utils.MediaProviderHelper;
-import org.calyxos.recorder.utils.Utils;
+import org.lineageos.recorder.ListActivity;
+import org.lineageos.recorder.R;
+import org.lineageos.recorder.RecorderActivity;
+import org.lineageos.recorder.utils.LastRecordHelper;
+import org.lineageos.recorder.utils.MediaProviderHelper;
+import org.lineageos.recorder.utils.Utils;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,10 +54,10 @@ import java.util.concurrent.atomic.AtomicLong;
 public class SoundRecorderService extends Service {
     private static final String TAG = "SoundRecorderService";
 
-    public static final String ACTION_START = "org.calyxos.recorder.service.START";
-    public static final String ACTION_STOP = "org.calyxos.recorder.service.STOP";
-    public static final String ACTION_PAUSE = "org.calyxos.recorder.service.PAUSE";
-    public static final String ACTION_RESUME = "org.calyxos.recorder.service.RESUME";
+    public static final String ACTION_START = "org.lineageos.recorder.service.START";
+    public static final String ACTION_STOP = "org.lineageos.recorder.service.STOP";
+    public static final String ACTION_PAUSE = "org.lineageos.recorder.service.PAUSE";
+    public static final String ACTION_RESUME = "org.lineageos.recorder.service.RESUME";
 
     public static final String EXTRA_LOCATION = "extra_filename";
     private static final String FILE_NAME_BASE = "SoundRecords/%1$s (%2$s).%3$s";

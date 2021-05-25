@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.calyxos.recorder.list;
+package org.lineageos.recorder.list;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,7 +22,7 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.calyxos.recorder.R;
+import org.lineageos.recorder.R;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;

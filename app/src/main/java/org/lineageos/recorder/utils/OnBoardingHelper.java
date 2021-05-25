@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.calyxos.recorder.utils;
+package org.lineageos.recorder.utils;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -25,7 +25,7 @@ import android.view.animation.AnimationUtils;
 
 import androidx.annotation.NonNull;
 
-import org.calyxos.recorder.R;
+import org.lineageos.recorder.R;
 
 public class OnBoardingHelper {
     private static final String ONBOARD_SETTINGS = "onboard_settings";

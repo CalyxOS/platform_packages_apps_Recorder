@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.calyxos.recorder;
+package org.lineageos.recorder;
 
 public final class BuildConfig {
-    public static final String APPLICATION_ID = "org.calyxos.recorder";
+    public static final String APPLICATION_ID = "org.lineageos.recorder";
 }
