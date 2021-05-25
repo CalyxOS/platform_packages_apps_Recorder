@@ -17,6 +17,13 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="org.lineageos.recorder">
 
+    <!-- Android Studio will complain about not being able to
+         resove the symbol, but it compiles with no problem.
+         Do not remove for as long as there are officially supported
+         devices that were supported in Android 11 -->
+    <!-- suppress AndroidElementNotAllowed -->
+    <original-package android:name="org.lineageos.recorder" />
+
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
@@ -43,7 +50,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <action android:name="android.intent.action.PHONE_STATE" />
                 <action android:name="android.provider.MediaStore.RECORD_SOUND" />
-                <action android:name="org.lineageos.recorder.server.display.SCAN" />
+                <action android:name="org.calyxos.recorder.server.display.SCAN" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -76,10 +83,10 @@
             android:name=".service.SoundRecorderService"
             android:exported="false">
             <intent-filter>
-                <action android:name="org.lineageos.recorder.service.START" />
-                <action android:name="org.lineageos.recorder.service.STOP" />
-                <action android:name="org.lineageos.recorder.service.PAUSE" />
-                <action android:name="org.lineageos.recorder.service.RESUME" />
+                <action android:name="org.calyxos.recorder.service.START" />
+                <action android:name="org.calyxos.recorder.service.STOP" />
+                <action android:name="org.calyxos.recorder.service.PAUSE" />
+                <action android:name="org.calyxos.recorder.service.RESUME" />
             </intent-filter>
         </service>
     </application>
