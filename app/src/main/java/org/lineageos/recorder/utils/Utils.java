@@ -15,6 +15,7 @@
  */
 package org.lineageos.recorder.utils;
 
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
@@ -22,6 +23,9 @@ import android.view.View;
 import android.view.Window;
 import android.view.inputmethod.InputMethodManager;
 
+import org.lineageos.recorder.service.SoundRecorderService;
+
+import androidx.annotation.NonNull;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 
@@ -40,12 +44,13 @@ public class Utils {
     private Utils() {
     }
 
-    private static String getStatus(Context context) {
+    @NonNull
+    private static String getStatus(@NonNull Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
         return prefs.getString(KEY_RECORDING, PREF_RECORDING_NOTHING);
     }
 
-    public static void setStatus(Context context, UiStatus status) {
+    public static void setStatus(@NonNull Context context, @NonNull UiStatus status) {
         switch (status) {
             case SOUND:
                 setStatus(context, PREF_RECORDING_SOUND);
@@ -59,16 +64,16 @@ public class Utils {
         }
     }
 
-    public static void setStatus(Context context, String status) {
+    public static void setStatus(@NonNull Context context, String status) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
         prefs.edit().putString(KEY_RECORDING, status).apply();
     }
 
-    public static boolean isRecording(Context context) {
+    public static boolean isRecording(@NonNull Context context) {
         return !PREF_RECORDING_NOTHING.equals(getStatus(context));
     }
 
-    public static boolean isPaused(Context context) {
+    public static boolean isPaused(@NonNull Context context) {
         return PREF_RECORDING_PAUSED.equals(getStatus(context));
     }
 
@@ -127,22 +132,22 @@ public class Utils {
         }
     }
 
-    public static void showKeyboard(Context context) {
+    public static void showKeyboard(@NonNull Context context) {
         InputMethodManager inputMethodManager = context.getSystemService(InputMethodManager.class);
         inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
     }
 
-    public static void closeKeyboard(Context context) {
+    public static void closeKeyboard(@NonNull Context context) {
         InputMethodManager inputMethodManager = context.getSystemService(InputMethodManager.class);
         inputMethodManager.toggleSoftInput(InputMethodManager.HIDE_IMPLICIT_ONLY, 0);
     }
 
-    public static void setRecordingHighQuality(Context context, boolean highQuality) {
+    public static void setRecordingHighQuality(@NonNull Context context, boolean highQuality) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
         prefs.edit().putInt(PREF_RECORDING_QUALITY, highQuality ? 1 : 0).apply();
     }
 
-    public static boolean getRecordInHighQuality(Context context) {
+    public static boolean getRecordInHighQuality(@NonNull Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
         return prefs.getInt(PREF_RECORDING_QUALITY, 0) == 1;
     }
@@ -151,5 +156,13 @@ public class Utils {
         NOTHING,
         SOUND,
         PAUSED,
+    }
+
+    public static void cancelShareNotification(Context context) {
+        NotificationManager nm = context.getSystemService(NotificationManager.class);
+        if (nm == null) {
+            return;
+        }
+        nm.cancel(SoundRecorderService.NOTIFICATION_ID);
     }
 }

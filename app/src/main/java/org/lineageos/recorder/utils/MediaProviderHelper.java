@@ -18,6 +18,7 @@ package org.lineageos.recorder.utils;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
@@ -95,7 +96,8 @@ public final class MediaProviderHelper {
         runTask(new LoaderTask(cr), listener);
     }
 
-    public static void remove(@NonNull ContentResolver cr, @NonNull Uri uri) {
+    public static void remove(@NonNull Context context, @NonNull Uri uri) {
+        ContentResolver cr = context.getContentResolver();
         cr.delete(uri, null, null);
     }
 

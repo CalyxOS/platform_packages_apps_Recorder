@@ -15,9 +15,12 @@
  */
 package org.lineageos.recorder;
 
-import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.ActionMode;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -32,16 +35,29 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.lineageos.recorder.list.RecordingItemCallbacks;
+import org.lineageos.recorder.list.ListActionModeCallback;
+import org.lineageos.recorder.list.RecordingData;
+import org.lineageos.recorder.list.RecordingListCallbacks;
 import org.lineageos.recorder.list.RecordingsAdapter;
 import org.lineageos.recorder.utils.LastRecordHelper;
 import org.lineageos.recorder.utils.MediaProviderHelper;
 import org.lineageos.recorder.utils.Utils;
 
-public class ListActivity extends AppCompatActivity implements RecordingItemCallbacks {
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class ListActivity extends AppCompatActivity implements RecordingListCallbacks {
     private static final String TYPE_AUDIO = "audio/*";
 
     private RecordingsAdapter mAdapter;
+
+    private Toolbar mToolbar;
+    private RecyclerView mListView;
+    private ProgressBar mProgressBar;
+    private TextView mEmptyText;
+
+    private ActionMode mActionMode;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -50,12 +66,12 @@ public class ListActivity extends AppCompatActivity implements RecordingItemCall
         setContentView(R.layout.activity_list);
 
         final CoordinatorLayout coordinatorLayout = findViewById(R.id.coordinator);
-        final Toolbar toolbar = findViewById(R.id.toolbar);
-        final RecyclerView listView = findViewById(R.id.list_view);
-        final ProgressBar progressBar = findViewById(R.id.list_loading);
-        final TextView emptyText = findViewById(R.id.list_empty);
+        mToolbar = findViewById(R.id.toolbar);
+        mListView = findViewById(R.id.list_view);
+        mProgressBar = findViewById(R.id.list_loading);
+        mEmptyText = findViewById(R.id.list_empty);
 
-        setSupportActionBar(toolbar);
+        setSupportActionBar(mToolbar);
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
             actionBar.setDisplayShowHomeEnabled(true);
@@ -68,31 +84,29 @@ public class ListActivity extends AppCompatActivity implements RecordingItemCall
             public void onItemRangeRemoved(int positionStart, int itemCount) {
                 super.onItemRangeRemoved(positionStart, itemCount);
                 if (mAdapter.getItemCount() == 0) {
-                    emptyText.setVisibility(View.VISIBLE);
+                    changeEmptyView(true);
+                    endSelectionMode();
                 }
             }
-        });
-        listView.setLayoutManager(new LinearLayoutManager(this));
-        listView.setAdapter(mAdapter);
 
-        MediaProviderHelper.requestMyRecordings(getContentResolver(), list -> {
-            progressBar.setVisibility(View.GONE);
-            if (list.isEmpty()) {
-                emptyText.setVisibility(View.VISIBLE);
-            } else {
-                listView.setVisibility(View.VISIBLE);
-                mAdapter.setData(list);
+            @Override
+            public void onChanged() {
+                super.onChanged();
+                changeEmptyView(mAdapter.getItemCount() == 0);
             }
         });
+        mListView.setLayoutManager(new LinearLayoutManager(this));
+        mListView.setAdapter(mAdapter);
+
+        loadRecordings();
 
         Utils.setFullScreen(getWindow(), coordinatorLayout);
-        Utils.setVerticalInsets(listView);
+        Utils.setVerticalInsets(mListView);
     }
 
     @Override
     public void onPlay(@NonNull Uri uri) {
-        final Intent intent = LastRecordHelper.getOpenIntent(uri, TYPE_AUDIO);
-        startActivityForResult(intent, 0);
+        startActivity(LastRecordHelper.getOpenIntent(uri, TYPE_AUDIO));
     }
 
     @Override
@@ -123,5 +137,122 @@ public class ListActivity extends AppCompatActivity implements RecordingItemCall
                         })
         );
         dialog.show();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        super.onCreateOptionsMenu(menu);
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_list, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem deleteAllItem = menu.findItem(R.id.action_delete_all);
+        boolean hasItems = mAdapter.getItemCount() > 0;
+        deleteAllItem.setEnabled(hasItems);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_delete_all) {
+            deleteAllRecordings();
+            return true;
+        } else {
+            return super.onOptionsItemSelected(item);
+        }
+    }
+
+    @Override
+    public void startSelectionMode() {
+        // Clear previous (should do nothing), but be sure
+        endSelectionMode();
+        // Start action mode
+        mActionMode = mToolbar.startActionMode(new ListActionModeCallback(
+                this::deleteSelectedRecordings,
+                this::shareSelectedRecordings));
+        mAdapter.enterSelectionMode();
+    }
+
+    @Override
+    public void endSelectionMode() {
+        if (mActionMode != null) {
+            mActionMode.finish();
+            mActionMode = null;
+        }
+        mAdapter.exitSelectionMode();
+    }
+
+    @Override
+    public void onActionModeFinished(@NonNull ActionMode mode) {
+        super.onActionModeFinished(mode);
+        endSelectionMode();
+    }
+
+    private void loadRecordings() {
+        MediaProviderHelper.requestMyRecordings(getContentResolver(), list -> {
+            mProgressBar.setVisibility(View.GONE);
+            mAdapter.setData(list);
+        });
+    }
+
+    private void changeEmptyView(boolean isEmpty) {
+        mEmptyText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        mListView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    }
+
+    private void shareSelectedRecordings() {
+        final List<RecordingData> selectedItems = mAdapter.getSelected();
+        if (selectedItems.isEmpty()) {
+            return;
+        }
+
+        final ArrayList<Uri> uris = selectedItems.stream()
+                .map(RecordingData::getUri)
+                .collect(Collectors.toCollection(ArrayList::new));
+        startActivity(LastRecordHelper.getShareIntents(uris, TYPE_AUDIO));
+    }
+
+    private void deleteSelectedRecordings() {
+        final List<RecordingData> selectedItems = mAdapter.getSelected();
+        if (selectedItems.isEmpty()) {
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.delete_selected_title)
+                .setMessage(getString(R.string.delete_selected_message))
+                .setPositiveButton(R.string.delete, (dialog, which) -> {
+                    selectedItems.forEach(item -> {
+                        MediaProviderHelper.remove(this, item.getUri());
+                        mAdapter.onDelete(item);
+                    });
+                    Utils.cancelShareNotification(this);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void deleteAllRecordings() {
+        final List<RecordingData> items = mAdapter.getData();
+        if (items.isEmpty()) {
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.delete_all_title)
+                .setMessage(getString(R.string.delete_all_message))
+                .setPositiveButton(R.string.delete, (dialog, which) -> {
+                    items.forEach(item -> {
+                        MediaProviderHelper.remove(this, item.getUri());
+                    });
+                    mAdapter.setData(new ArrayList<>());
+                    Utils.cancelShareNotification(this);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 }

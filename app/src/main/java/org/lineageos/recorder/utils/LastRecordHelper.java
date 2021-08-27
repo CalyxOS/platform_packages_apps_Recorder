@@ -15,7 +15,6 @@
  */
 package org.lineageos.recorder.utils;
 
-import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -25,12 +24,14 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 
 import org.lineageos.recorder.DialogActivity;
 import org.lineageos.recorder.R;
-import org.lineageos.recorder.service.SoundRecorderService;
 
+import java.util.ArrayList;
 import java.util.function.Consumer;
 
 public class LastRecordHelper {
@@ -40,23 +41,26 @@ public class LastRecordHelper {
     private LastRecordHelper() {
     }
 
+    @NonNull
     public static AlertDialog deleteFile(Context context, final Uri uri) {
         return new AlertDialog.Builder(context)
                 .setTitle(R.string.delete_title)
                 .setMessage(context.getString(R.string.delete_recording_message))
-                .setPositiveButton(R.string.delete, (dialog, which) -> {
-                    MediaProviderHelper.remove(context.getContentResolver(), uri);
-                    NotificationManager nm = context.getSystemService(NotificationManager.class);
-                    if (nm == null) {
-                        return;
-                    }
-                    nm.cancel(SoundRecorderService.NOTIFICATION_ID);
-                    setLastItem(context, null);
-                })
+                .setPositiveButton(R.string.delete,
+                        (dialog, which) -> deleteRecording(context, uri, true))
                 .setNegativeButton(R.string.cancel, null)
                 .create();
     }
 
+    public static void deleteRecording(Context context, Uri uri, boolean clearLastItem) {
+        MediaProviderHelper.remove(context, uri);
+        Utils.cancelShareNotification(context);
+        if (clearLastItem) {
+            setLastItem(context, null);
+        }
+    }
+
+    @NonNull
     public static AlertDialog promptFileDeletion(Context context,
                                                  final Uri uri,
                                                  Runnable onDelete) {
@@ -64,20 +68,15 @@ public class LastRecordHelper {
                 .setTitle(R.string.delete_title)
                 .setMessage(context.getString(R.string.delete_recording_message))
                 .setPositiveButton(R.string.delete, (dialog, which) -> {
-                    NotificationManager nm = context.getSystemService(NotificationManager.class);
-                    if (nm == null) {
-                        return;
-                    }
-
-                    nm.cancel(SoundRecorderService.NOTIFICATION_ID);
-                    MediaProviderHelper.remove(context.getContentResolver(), uri);
+                    deleteRecording(context, uri, false);
                     onDelete.run();
                 })
                 .setNegativeButton(R.string.cancel, null)
                 .create();
     }
 
-    public static AlertDialog promptRename(Context context,
+    @NonNull
+    public static AlertDialog promptRename(@NonNull Context context,
                                            String currentTitle,
                                            Consumer<String> consumer) {
         LayoutInflater inflater = context.getSystemService(LayoutInflater.class);
@@ -106,6 +105,7 @@ public class LastRecordHelper {
                 .create();
     }
 
+    @NonNull
     public static Intent getShareIntent(Uri uri, String mimeType) {
         Intent intent = new Intent(Intent.ACTION_SEND);
         intent.setType(mimeType);
@@ -115,6 +115,17 @@ public class LastRecordHelper {
         return chooserIntent;
     }
 
+    @NonNull
+    public static Intent getShareIntents(ArrayList<Uri> uris, String mimeType) {
+        Intent intent = new Intent(Intent.ACTION_SEND_MULTIPLE);
+        intent.setType(mimeType);
+        intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+        Intent chooserIntent = Intent.createChooser(intent, null);
+        chooserIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+        return chooserIntent;
+    }
+
+    @NonNull
     public static Intent getOpenIntent(Uri uri, String mimeType) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setDataAndType(uri, mimeType);
@@ -122,6 +133,7 @@ public class LastRecordHelper {
         return intent;
     }
 
+    @NonNull
     public static Intent getDeleteIntent(Context context) {
         Intent intent = new Intent(context, DialogActivity.class);
         intent.putExtra(DialogActivity.EXTRA_TITLE, R.string.sound_last_title);
@@ -129,13 +141,14 @@ public class LastRecordHelper {
         return intent;
     }
 
-    public static void setLastItem(Context context, String path) {
+    public static void setLastItem(@NonNull Context context, String path) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
         prefs.edit()
                 .putString(KEY_LAST_SOUND, path)
                 .apply();
     }
 
+    @Nullable
     public static Uri getLastItemUri(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
         String uriStr = prefs.getString(KEY_LAST_SOUND, null);

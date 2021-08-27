@@ -188,7 +188,6 @@ public class SoundRecorderService extends Service {
                 mRecordFile,
                 this::onRecordCompleted,
                 mRecorder.getMimeType());
-        Utils.setStatus(this, Utils.UiStatus.NOTHING);
         return START_STICKY;
     }
 
@@ -261,6 +260,7 @@ public class SoundRecorderService extends Service {
         if (uri != null) {
             createShareNotification(uri);
         }
+        Utils.setStatus(this, Utils.UiStatus.NOTHING);
     }
 
     private void createNotificationChannel() {
@@ -272,6 +272,7 @@ public class SoundRecorderService extends Service {
         mNotificationManager.createNotificationChannel(notificationChannel);
     }
 
+    @NonNull
     private Notification createRecordingNotification() {
         if (mNotificationManager == null) {
             return null;
@@ -345,6 +346,7 @@ public class SoundRecorderService extends Service {
         mNotificationManager.notify(NOTIFICATION_ID, notification);
     }
 
+    @NonNull
     private File createNewAudioFile(@Nullable String locationName,
                                     @NonNull String extension) {
         String fileName = String.format(FILE_NAME_BASE,

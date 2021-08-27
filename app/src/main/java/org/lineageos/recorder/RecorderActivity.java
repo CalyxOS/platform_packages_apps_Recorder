@@ -15,6 +15,8 @@
  */
 package org.lineageos.recorder;
 
+import static android.provider.MediaStore.Audio.Media.RECORD_SOUND_ACTION;
+
 import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -34,6 +36,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
@@ -43,6 +46,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import org.lineageos.recorder.service.RecorderBinder;
 import org.lineageos.recorder.service.SoundRecorderService;
 import org.lineageos.recorder.ui.WaveFormView;
+import org.lineageos.recorder.utils.LastRecordHelper;
 import org.lineageos.recorder.utils.LocationHelper;
 import org.lineageos.recorder.utils.OnBoardingHelper;
 import org.lineageos.recorder.utils.Utils;
@@ -72,6 +76,9 @@ public class RecorderActivity extends AppCompatActivity implements
 
     private LocationHelper mLocationHelper;
 
+    private boolean mReturnAudio;
+    private boolean mHasRecordedAudio;
+
     private final BroadcastReceiver mTelephonyReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -86,7 +93,7 @@ public class RecorderActivity extends AppCompatActivity implements
     };
 
     @Override
-    public void onCreate(Bundle savedInstance) {
+    public void onCreate(@Nullable Bundle savedInstance) {
         super.onCreate(savedInstance);
         setContentView(R.layout.activity_main);
 
@@ -111,6 +118,12 @@ public class RecorderActivity extends AppCompatActivity implements
         mPrefs.registerOnSharedPreferenceChangeListener(this);
 
         mLocationHelper = new LocationHelper(this);
+
+        if (RECORD_SOUND_ACTION.equals(getIntent().getAction())) {
+            mReturnAudio = true;
+            soundList.setVisibility(View.GONE);
+            settings.setVisibility(View.GONE);
+        }
 
         bindSoundRecService();
 
@@ -194,6 +207,10 @@ public class RecorderActivity extends AppCompatActivity implements
     public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
         if (Utils.KEY_RECORDING.equals(key)) {
             refresh();
+            if (mReturnAudio && mHasRecordedAudio) {
+                Utils.cancelShareNotification(this);
+                promptUser();
+            }
         }
     }
 
@@ -226,6 +243,7 @@ public class RecorderActivity extends AppCompatActivity implements
             Intent stopIntent = new Intent(this, SoundRecorderService.class)
                     .setAction(SoundRecorderService.ACTION_STOP);
             startService(stopIntent);
+            mHasRecordedAudio = true;
         } else {
             // Start
             Intent startIntent = new Intent(this, SoundRecorderService.class)
@@ -349,5 +367,35 @@ public class RecorderActivity extends AppCompatActivity implements
 
     private void openList() {
         startActivity(new Intent(this, ListActivity.class));
+    }
+
+    private void confirmLastResult() {
+        Intent resultIntent = new Intent().setData(LastRecordHelper.getLastItemUri(this));
+        setResult(RESULT_OK, resultIntent);
+        finish();
+    }
+
+    private void discardLastResult() {
+        LastRecordHelper.deleteRecording(this, LastRecordHelper.getLastItemUri(this), true);
+        cancelResult(true);
+    }
+
+    private void cancelResult(boolean quit) {
+        setResult(RESULT_CANCELED, new Intent());
+        mHasRecordedAudio = false;
+        if (quit) {
+            finish();
+        }
+    }
+
+    private void promptUser() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.confirm_result_title)
+                .setMessage(R.string.confirm_result_message)
+                .setPositiveButton(R.string.confirm, (dialog, which) -> confirmLastResult())
+                .setNegativeButton(R.string.discard, (dialog, which) -> discardLastResult())
+                .setNeutralButton(R.string.record_again, (dialog, which) -> cancelResult(false))
+                .setCancelable(false)
+                .show();
     }
 }
