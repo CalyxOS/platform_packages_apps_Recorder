@@ -15,7 +15,10 @@
  */
 package org.lineageos.recorder.service;
 
+import android.Manifest;
 import android.media.MediaRecorder;
+
+import androidx.annotation.RequiresPermission;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,6 +31,7 @@ public class GoodQualityRecorder implements SoundRecording {
     private boolean mIsPaused = false;
 
     @Override
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     public void startRecording(File file) throws IOException {
         mRecorder = new MediaRecorder();
         mRecorder.setOutputFile(file);
@@ -50,8 +54,14 @@ public class GoodQualityRecorder implements SoundRecording {
             mRecorder.resume();
         }
 
-        mRecorder.stop();
-        mRecorder.release();
+        // needed to prevent app crash when starting and stopping too fast
+        try {
+            mRecorder.stop();
+        } catch (RuntimeException rte) {
+            return false;
+        } finally {
+            mRecorder.release();
+        }
         return true;
     }
 

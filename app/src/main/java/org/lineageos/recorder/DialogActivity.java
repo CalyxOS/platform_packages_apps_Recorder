@@ -16,13 +16,8 @@
 package org.lineageos.recorder;
 
 import android.Manifest;
-import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Bundle;
-import android.view.LayoutInflater;
-import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -30,17 +25,12 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 
-import org.lineageos.recorder.utils.LastRecordHelper;
 import org.lineageos.recorder.utils.Utils;
 
 public class DialogActivity extends AppCompatActivity {
-    public static final String EXTRA_TITLE = "dialogTitle";
-    public static final String EXTRA_DELETE_LAST_RECORDING = "deleteLastItem";
     private static final int REQUEST_LOCATION_PERMS = 214;
 
     private SwitchCompat mLocationSwitch;
-
-    private SharedPreferences mPrefs;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstance) {
@@ -48,32 +38,24 @@ public class DialogActivity extends AppCompatActivity {
 
         setFinishOnTouchOutside(true);
 
-        mPrefs = getSharedPreferences(Utils.PREFS, 0);
-
-        Intent intent = getIntent();
-        boolean deleteLastRecording = intent.getBooleanExtra(EXTRA_DELETE_LAST_RECORDING, false);
-
-        if (deleteLastRecording) {
-            deleteLastItem();
-            return;
-        }
-
-        int dialogTitle = intent.getIntExtra(EXTRA_TITLE, 0);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setView(setupAsSettingsScreen())
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.settings_title)
+                .setView(R.layout.dialog_content_settings)
                 .setOnDismissListener(dialogInterface -> finish())
-                .create();
+                .show();
 
-        if (dialogTitle != 0) {
-            dialog.setTitle(dialogTitle);
+        final boolean isRecording = Utils.isRecording(this);
+
+        mLocationSwitch = dialog.findViewById(
+                R.id.dialog_content_settings_location_switch);
+        if (mLocationSwitch != null) {
+            setupLocationSwitch(mLocationSwitch, isRecording);
         }
-        dialog.show();
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
+        final SwitchCompat highQualitySwitch = dialog.findViewById(
+                R.id.dialog_content_settings_high_quality_switch);
+        if (highQualitySwitch != null) {
+            setupHighQualitySwitch(highQualitySwitch, isRecording);
+        }
     }
 
     @Override
@@ -113,49 +95,57 @@ public class DialogActivity extends AppCompatActivity {
         finish();
     }
 
-    private void deleteLastItem() {
-        Uri uri = LastRecordHelper.getLastItemUri(this);
-        AlertDialog dialog = LastRecordHelper.deleteFile(this, uri);
-        dialog.setOnDismissListener(d -> finish());
-        dialog.show();
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(0, android.R.anim.fade_out);
     }
 
-    @NonNull
-    private View setupAsSettingsScreen() {
-        LayoutInflater inflater = getLayoutInflater();
-        final View view = inflater.inflate(R.layout.dialog_content_settings, null);
-        mLocationSwitch = view.findViewById(R.id.dialog_content_settings_location_switch);
-        boolean hasLocationPerm = hasLocationPermission();
-        boolean tagWithLocation = getTagWithLocation();
-        if (tagWithLocation && !hasLocationPerm) {
-            setTagWithLocation(false);
+    private void setupLocationSwitch(@NonNull SwitchCompat locationSwitch,
+                                     boolean isRecording) {
+        final boolean tagWithLocation;
+        if (Utils.getTagWithLocation(this)) {
+            if (hasLocationPermission()) {
+                tagWithLocation = true;
+            } else {
+                // Permission revoked -> disabled feature
+                Utils.setTagWithLocation(this, false);
+                tagWithLocation = false;
+            }
+        } else {
             tagWithLocation = false;
         }
-        mLocationSwitch.setChecked(tagWithLocation);
-        mLocationSwitch.setOnCheckedChangeListener((button, isChecked) -> {
-            if (isChecked) {
-                if (hasLocationPermission()) {
-                    setTagWithLocation(true);
+
+        locationSwitch.setChecked(tagWithLocation);
+
+        if (isRecording) {
+            locationSwitch.setEnabled(false);
+        } else {
+            locationSwitch.setOnCheckedChangeListener((button, isChecked) -> {
+                if (isChecked) {
+                    if (hasLocationPermission()) {
+                        Utils.setTagWithLocation(this, true);
+                    } else {
+                        askLocationPermission();
+                    }
                 } else {
-                    askLocationPermission();
+                    Utils.setTagWithLocation(this, false);
                 }
-            } else {
-                setTagWithLocation(false);
-            }
-        });
-
-        SwitchCompat highQualitySwitch =
-                view.findViewById(R.id.dialog_content_settings_high_quality_switch);
-        boolean highQuality = Utils.getRecordInHighQuality(this);
-        highQualitySwitch.setChecked(highQuality);
-        highQualitySwitch.setOnCheckedChangeListener(((buttonView, isChecked) ->
-                Utils.setRecordingHighQuality(this, isChecked)));
-        if (Utils.isRecording(this)) {
-            mLocationSwitch.setEnabled(false);
-            highQualitySwitch.setEnabled(false);
+            });
         }
+    }
 
-        return view;
+    private void setupHighQualitySwitch(@NonNull SwitchCompat highQualitySwitch,
+                                        boolean isRecording) {
+        final boolean highQuality = Utils.getRecordInHighQuality(this);
+        highQualitySwitch.setChecked(highQuality);
+
+        if (isRecording) {
+            highQualitySwitch.setEnabled(false);
+        } else {
+            highQualitySwitch.setOnCheckedChangeListener((button, isChecked) ->
+                    Utils.setRecordingHighQuality(this, isChecked));
+        }
     }
 
     private boolean hasLocationPermission() {
@@ -164,22 +154,14 @@ public class DialogActivity extends AppCompatActivity {
     }
 
     private void askLocationPermission() {
-        requestPermissions(new String[]{ Manifest.permission.ACCESS_FINE_LOCATION },
+        requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                 REQUEST_LOCATION_PERMS);
-    }
-
-    private void setTagWithLocation(boolean enabled) {
-        mPrefs.edit().putBoolean(Utils.PREF_TAG_WITH_LOCATION, enabled).apply();
-    }
-
-    private boolean getTagWithLocation() {
-        return mPrefs.getBoolean(Utils.PREF_TAG_WITH_LOCATION, false);
     }
 
     private void toggleAfterPermissionRequest(int requestCode) {
         if (requestCode == REQUEST_LOCATION_PERMS) {
             mLocationSwitch.setChecked(true);
-            setTagWithLocation(true);
+            Utils.setTagWithLocation(this, true);
         }
     }
 }

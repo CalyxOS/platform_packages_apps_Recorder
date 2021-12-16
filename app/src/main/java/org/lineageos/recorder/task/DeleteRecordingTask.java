@@ -13,29 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.lineageos.recorder.service;
+package org.lineageos.recorder.task;
 
-import android.Manifest;
+import android.content.ContentResolver;
+import android.net.Uri;
 
-import androidx.annotation.RequiresPermission;
+import androidx.annotation.NonNull;
 
-import java.io.File;
-import java.io.IOException;
+public final class DeleteRecordingTask implements Runnable {
+    @NonNull
+    private final ContentResolver cr;
+    @NonNull
+    private final Uri uri;
 
-public interface SoundRecording {
+    public DeleteRecordingTask(@NonNull ContentResolver cr, @NonNull Uri uri) {
+        this.cr = cr;
+        this.uri = uri;
+    }
 
-    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    void startRecording(File file) throws IOException;
-
-    boolean stopRecording();
-
-    boolean pauseRecording();
-
-    boolean resumeRecording();
-
-    int getCurrentAmplitude();
-
-    String getMimeType();
-
-    String getFileExtension();
+    @Override
+    public void run() {
+        cr.delete(uri, null, null);
+    }
 }

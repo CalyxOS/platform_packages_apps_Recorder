@@ -28,18 +28,19 @@ import org.lineageos.recorder.service.SoundRecorderService;
 import androidx.annotation.NonNull;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import java.io.Closeable;
 import java.io.IOException;
 
-public class Utils {
+public final class Utils {
     public static final String PREFS = "preferences";
     public static final String KEY_RECORDING = "recording";
     public static final String PREF_RECORDING_NOTHING = "nothing";
     private static final String PREF_RECORDING_SOUND = "sound";
     private static final String PREF_RECORDING_PAUSED = "paused";
-    public static final String PREF_TAG_WITH_LOCATION = "tag_with_location";
-    public static final String PREF_RECORDING_QUALITY = "recording_quality";
+    private static final String PREF_TAG_WITH_LOCATION = "tag_with_location";
+    private static final String PREF_RECORDING_QUALITY = "recording_quality";
 
     private Utils() {
     }
@@ -90,9 +91,12 @@ public class Utils {
         view.setSystemUiVisibility(flags);
     }
 
+    @SuppressWarnings("deprecation")
     public static void setVerticalInsets(View view) {
         ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
-            Insets systemInsets = insets.getSystemWindowInsets();
+             Insets systemInsets = Build.VERSION.SDK_INT >= 31
+                    ? insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                    : insets.getSystemWindowInsets();
             v.setPadding(v.getPaddingLeft(), systemInsets.top,
                     v.getPaddingRight(), systemInsets.bottom);
             return insets;
@@ -151,6 +155,17 @@ public class Utils {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
         return prefs.getInt(PREF_RECORDING_QUALITY, 0) == 1;
     }
+
+    public static void setTagWithLocation(@NonNull Context context, boolean tagWithLocation) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
+        prefs.edit().putBoolean(PREF_TAG_WITH_LOCATION, tagWithLocation).apply();
+    }
+
+    public static boolean getTagWithLocation(@NonNull Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
+        return prefs.getBoolean(PREF_TAG_WITH_LOCATION, false);
+    }
+
 
     public enum UiStatus {
         NOTHING,

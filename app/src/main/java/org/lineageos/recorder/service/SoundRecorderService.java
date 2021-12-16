@@ -16,6 +16,7 @@
 
 package org.lineageos.recorder.service;
 
+import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -25,6 +26,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.IBinder;
@@ -40,8 +42,9 @@ import org.lineageos.recorder.BuildConfig;
 import org.lineageos.recorder.ListActivity;
 import org.lineageos.recorder.R;
 import org.lineageos.recorder.RecorderActivity;
+import org.lineageos.recorder.task.AddRecordingToContentProviderTask;
+import org.lineageos.recorder.task.TaskExecutor;
 import org.lineageos.recorder.utils.LastRecordHelper;
-import org.lineageos.recorder.utils.MediaProviderHelper;
 import org.lineageos.recorder.utils.Utils;
 
 import java.io.File;
@@ -70,6 +73,7 @@ public class SoundRecorderService extends Service {
     private static final String NOTIFICATION_CHANNEL = "soundrecorder_notification_channel";
 
     private NotificationManager mNotificationManager;
+    private TaskExecutor mTaskExecutor;
 
     private final IBinder mBinder = new RecorderBinder(this);
     private SoundRecording mRecorder = null;
@@ -110,10 +114,13 @@ public class SoundRecorderService extends Service {
                 mNotificationManager.getNotificationChannel(NOTIFICATION_CHANNEL) == null) {
             createNotificationChannel();
         }
+
+        mTaskExecutor = new TaskExecutor();
     }
 
     @Override
     public void onDestroy() {
+        mTaskExecutor.terminate(null);
         unregisterReceiver(mShutdownReceiver);
         super.onDestroy();
     }
@@ -150,7 +157,13 @@ public class SoundRecorderService extends Service {
         mElapsedTime.set(0);
 
         try {
-            mRecorder.startRecording(mRecordFile);
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                    == PackageManager.PERMISSION_GRANTED) {
+                mRecorder.startRecording(mRecordFile);
+            } else {
+                Log.e(TAG, "Missing permission to record audio");
+                return START_NOT_STICKY;
+            }
         } catch (IOException e) {
             Log.e(TAG, "Error while starting the media recorder", e);
             return START_NOT_STICKY;
@@ -180,14 +193,16 @@ public class SoundRecorderService extends Service {
 
         boolean success = mRecorder.stopRecording();
         if (!success || mRecordFile == null) {
+            onRecordFailed();
             return START_NOT_STICKY;
         }
 
-        MediaProviderHelper.addSoundToContentProvider(
-                getContentResolver(),
-                mRecordFile,
+        mTaskExecutor.runTask(new AddRecordingToContentProviderTask(
+                        getContentResolver(),
+                        mRecordFile,
+                        mRecorder.getMimeType()),
                 this::onRecordCompleted,
-                mRecorder.getMimeType());
+                () -> Log.e(TAG, "Failed to save recording"));
         return START_STICKY;
     }
 
@@ -263,6 +278,12 @@ public class SoundRecorderService extends Service {
         Utils.setStatus(this, Utils.UiStatus.NOTHING);
     }
 
+    private void onRecordFailed() {
+        mNotificationManager.cancel(NOTIFICATION_ID);
+        stopForeground(true);
+        Utils.setStatus(this, Utils.UiStatus.NOTHING);
+    }
+
     private void createNotificationChannel() {
         CharSequence name = getString(R.string.sound_channel_title);
         String description = getString(R.string.sound_channel_desc);
@@ -272,7 +293,7 @@ public class SoundRecorderService extends Service {
         mNotificationManager.createNotificationChannel(notificationChannel);
     }
 
-    @NonNull
+    @Nullable
     private Notification createRecordingNotification() {
         if (mNotificationManager == null) {
             return null;
@@ -283,7 +304,7 @@ public class SoundRecorderService extends Service {
                 PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stopPIntent = PendingIntent.getService(this, 0,
                 new Intent(this, SoundRecorderService.class).setAction(ACTION_STOP),
-                        PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent.FLAG_IMMUTABLE);
 
         String duration = DateUtils.formatElapsedTime(mSbRecycle, mElapsedTime.get());
         NotificationCompat.Builder nb = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL)
@@ -297,12 +318,12 @@ public class SoundRecorderService extends Service {
         if (mIsPaused) {
             PendingIntent resumePIntent = PendingIntent.getService(this, 0,
                     new Intent(this, SoundRecorderService.class).setAction(ACTION_RESUME),
-                            PendingIntent.FLAG_IMMUTABLE);
+                    PendingIntent.FLAG_IMMUTABLE);
             nb.addAction(R.drawable.ic_resume, getString(R.string.resume), resumePIntent);
         } else {
             PendingIntent pausePIntent = PendingIntent.getService(this, 0,
                     new Intent(this, SoundRecorderService.class).setAction(ACTION_PAUSE),
-                            PendingIntent.FLAG_IMMUTABLE);
+                    PendingIntent.FLAG_IMMUTABLE);
             nb.addAction(R.drawable.ic_pause, getString(R.string.pause), pausePIntent);
         }
         nb.addAction(R.drawable.ic_stop, getString(R.string.stop), stopPIntent);

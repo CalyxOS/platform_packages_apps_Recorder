@@ -26,6 +26,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -45,6 +46,8 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.lineageos.recorder.service.RecorderBinder;
 import org.lineageos.recorder.service.SoundRecorderService;
+import org.lineageos.recorder.task.DeleteRecordingTask;
+import org.lineageos.recorder.task.TaskExecutor;
 import org.lineageos.recorder.ui.WaveFormView;
 import org.lineageos.recorder.utils.LastRecordHelper;
 import org.lineageos.recorder.utils.LocationHelper;
@@ -75,6 +78,7 @@ public class RecorderActivity extends AppCompatActivity implements
     private WaveFormView mRecordingVisualizer;
 
     private LocationHelper mLocationHelper;
+    private TaskExecutor mTaskExecutor;
 
     private boolean mReturnAudio;
     private boolean mHasRecordedAudio;
@@ -83,10 +87,9 @@ public class RecorderActivity extends AppCompatActivity implements
         @Override
         public void onReceive(Context context, Intent intent) {
             if (TelephonyManager.ACTION_PHONE_STATE_CHANGED.equals(intent.getAction())) {
-                int state = intent.getIntExtra(TelephonyManager.EXTRA_STATE, -1);
-                if (state == TelephonyManager.CALL_STATE_OFFHOOK &&
-                        Utils.isRecording(context)) {
-                    toggleSoundRecorder();
+                String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
+                if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) {
+                    togglePause();
                 }
             }
         }
@@ -118,6 +121,9 @@ public class RecorderActivity extends AppCompatActivity implements
         mPrefs.registerOnSharedPreferenceChangeListener(this);
 
         mLocationHelper = new LocationHelper(this);
+
+        mTaskExecutor = new TaskExecutor();
+        getLifecycle().addObserver(mTaskExecutor);
 
         if (RECORD_SOUND_ACTION.equals(getIntent().getAction())) {
             mReturnAudio = true;
@@ -273,7 +279,6 @@ public class RecorderActivity extends AppCompatActivity implements
     private void refresh() {
         if (Utils.isRecording(this)) {
             mSoundFab.setImageResource(R.drawable.ic_action_stop);
-            mSoundFab.setSelected(true);
             mRecordingVisualizer.setVisibility(View.VISIBLE);
             mRecordingVisualizer.setAmplitude(0);
             mPauseResume.setVisibility(View.VISIBLE);
@@ -292,7 +297,6 @@ public class RecorderActivity extends AppCompatActivity implements
         } else {
             mRecordingText.setText(getString(R.string.main_sound_action));
             mSoundFab.setImageResource(R.drawable.ic_action_record);
-            mSoundFab.setSelected(false);
             mRecordingVisualizer.setVisibility(View.INVISIBLE);
             mPauseResume.setVisibility(View.GONE);
             if (mSoundService != null) {
@@ -361,7 +365,6 @@ public class RecorderActivity extends AppCompatActivity implements
 
     private void openSettings() {
         Intent intent = new Intent(this, DialogActivity.class);
-        intent.putExtra(DialogActivity.EXTRA_TITLE, R.string.settings_title);
         startActivity(intent);
     }
 
@@ -376,7 +379,13 @@ public class RecorderActivity extends AppCompatActivity implements
     }
 
     private void discardLastResult() {
-        LastRecordHelper.deleteRecording(this, LastRecordHelper.getLastItemUri(this), true);
+        final Uri uri = LastRecordHelper.getLastItemUri(this);
+        if (uri != null) {
+            mTaskExecutor.runTask(new DeleteRecordingTask(getContentResolver(), uri), () -> {
+                Utils.cancelShareNotification(this);
+                LastRecordHelper.setLastItem(this, null);
+            });
+        }
         cancelResult(true);
     }
 

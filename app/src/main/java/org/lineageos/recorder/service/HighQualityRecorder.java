@@ -15,10 +15,13 @@
  */
 package org.lineageos.recorder.service;
 
+import android.Manifest;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.util.Log;
+
+import androidx.annotation.RequiresPermission;
 
 import org.lineageos.recorder.utils.PcmConverter;
 import org.lineageos.recorder.utils.Utils;
@@ -50,6 +53,7 @@ public class HighQualityRecorder implements SoundRecording {
     private final Semaphore mPauseSemaphore = new Semaphore(1);
 
     @Override
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     public void startRecording(File file) {
         mFile = file;
         mRecord = new AudioRecord(MediaRecorder.AudioSource.DEFAULT,
@@ -76,10 +80,15 @@ public class HighQualityRecorder implements SoundRecording {
             Log.e(TAG, "Interrupted thread", e);
         }
 
-        mRecord.stop();
-        mRecord.release();
-
-        PcmConverter.convertToWave(mFile, BUFFER_SIZE);
+        // needed to prevent app crash when starting and stopping too fast
+        try {
+            mRecord.stop();
+            PcmConverter.convertToWave(mFile, BUFFER_SIZE);
+        } catch (RuntimeException rte) {
+            return false;
+        } finally {
+            mRecord.release();
+        }
         return true;
     }
 
