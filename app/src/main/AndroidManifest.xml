@@ -49,7 +49,6 @@
                 <action android:name="android.intent.action.MAIN" />
                 <action android:name="android.intent.action.PHONE_STATE" />
                 <action android:name="android.provider.MediaStore.RECORD_SOUND" />
-                <action android:name="org.calyxos.recorder.server.display.SCAN" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER" />
