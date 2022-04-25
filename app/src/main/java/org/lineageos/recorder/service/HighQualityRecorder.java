@@ -24,14 +24,11 @@ import android.util.Log;
 import androidx.annotation.RequiresPermission;
 
 import org.lineageos.recorder.utils.PcmConverter;
-import org.lineageos.recorder.utils.Utils;
 
 import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.concurrent.Semaphore;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class HighQualityRecorder implements SoundRecording {
@@ -39,26 +36,37 @@ public class HighQualityRecorder implements SoundRecording {
     private static final String FILE_NAME_EXTENSION_WAV = "wav";
     private static final String FILE_MIME_TYPE_WAV = "audio/wav";
     private static final int SAMPLING_RATE = 44100;
-    private static final int CHANNEL_IN = AudioFormat.CHANNEL_IN_DEFAULT;
+    private static final int CHANNEL_IN = AudioFormat.CHANNEL_IN_STEREO;
     private static final int FORMAT = AudioFormat.ENCODING_PCM_16BIT;
-    private static final int BUFFER_SIZE = AudioRecord.getMinBufferSize(SAMPLING_RATE,
+    private static final int BUFFER_SIZE_IN_BYTES = 2 * AudioRecord.getMinBufferSize(SAMPLING_RATE,
             CHANNEL_IN, FORMAT);
 
     private AudioRecord mRecord;
-    private File mFile;
+    private PcmConverter mPcmConverter;
+    private Path mPath;
+    private int mMaxAmplitude;
 
-    private volatile byte[] mData;
     private Thread mThread;
     private final AtomicBoolean mIsRecording = new AtomicBoolean(false);
-    private final Semaphore mPauseSemaphore = new Semaphore(1);
+    private final AtomicBoolean mTrackAmplitude = new AtomicBoolean(false);
 
     @Override
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    public void startRecording(File file) {
-        mFile = file;
-        mRecord = new AudioRecord(MediaRecorder.AudioSource.DEFAULT,
-                SAMPLING_RATE, CHANNEL_IN, FORMAT, BUFFER_SIZE);
-        mData = new byte[BUFFER_SIZE];
+    public void startRecording(Path path) {
+        mPath = path;
+
+        AudioFormat audioFormat = new AudioFormat.Builder()
+                .setSampleRate(SAMPLING_RATE)
+                .setChannelMask(CHANNEL_IN)
+                .setEncoding(FORMAT)
+                .build();
+
+        mPcmConverter = new PcmConverter(audioFormat.getSampleRate(),
+                audioFormat.getChannelCount(),
+                audioFormat.getFrameSizeInBytes() * 8 / audioFormat.getChannelCount());
+
+        mRecord = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, audioFormat.getSampleRate(),
+                audioFormat.getChannelMask(), audioFormat.getEncoding(), BUFFER_SIZE_IN_BYTES);
         mRecord.startRecording();
 
         mIsRecording.set(true);
@@ -74,21 +82,15 @@ public class HighQualityRecorder implements SoundRecording {
         }
 
         mIsRecording.set(false);
+
         try {
-            mThread.join();
+            mThread.join(1000);
         } catch (InterruptedException e) {
-            Log.e(TAG, "Interrupted thread", e);
+            // Wait at most 1 second, if we fail save the current data
+        } finally {
+            mPcmConverter.convertToWave(mPath, BUFFER_SIZE_IN_BYTES);
         }
 
-        // needed to prevent app crash when starting and stopping too fast
-        try {
-            mRecord.stop();
-            PcmConverter.convertToWave(mFile, BUFFER_SIZE);
-        } catch (RuntimeException rte) {
-            return false;
-        } finally {
-            mRecord.release();
-        }
         return true;
     }
 
@@ -98,37 +100,29 @@ public class HighQualityRecorder implements SoundRecording {
             return false;
         }
 
-        try {
-            mPauseSemaphore.acquire();
-        } catch (InterruptedException e) {
-            Log.e(TAG, "Failed to acquire pause semaphore", e);
-        }
         mRecord.stop();
         return true;
     }
 
     @Override
     public boolean resumeRecording() {
-        if (!mIsRecording.get() || mPauseSemaphore.availablePermits() == 1) {
+        if (!mIsRecording.get()) {
             return false;
         }
 
         mRecord.startRecording();
-        mPauseSemaphore.release();
         return true;
     }
 
     @Override
     public int getCurrentAmplitude() {
-        byte[] data = new byte[BUFFER_SIZE];
-        // Make a copy so we don't lock the object too long
-        System.arraycopy(mData, 0, data, 0, BUFFER_SIZE);
-        double val = 0d;
-        for (byte b : data) {
-            val += (b * b);
+        if (!mTrackAmplitude.get()) {
+            mTrackAmplitude.set(true);
         }
-        val /= BUFFER_SIZE;
-        return (int) (val * 10);
+
+        int value = mMaxAmplitude;
+        mMaxAmplitude = 0;
+        return value;
     }
 
     @Override
@@ -142,36 +136,47 @@ public class HighQualityRecorder implements SoundRecording {
     }
 
     private void recordingThreadImpl() {
-        BufferedOutputStream out = null;
-        try {
-            out = new BufferedOutputStream(new FileOutputStream(mFile));
-
+        try (BufferedOutputStream out = new BufferedOutputStream(Files.newOutputStream(mPath))) {
+            final byte[] data = new byte[BUFFER_SIZE_IN_BYTES];
             while (mIsRecording.get()) {
-                mPauseSemaphore.acquireUninterruptibly();
                 try {
-                    int status = mRecord.read(mData, 0, BUFFER_SIZE);
+                    int status = mRecord.read(data, 0, BUFFER_SIZE_IN_BYTES);
                     switch (status) {
                         case AudioRecord.ERROR_INVALID_OPERATION:
                         case AudioRecord.ERROR_BAD_VALUE:
                             Log.e(TAG, "Error reading audio record data");
                             mIsRecording.set(false);
                             break;
+                        case AudioRecord.ERROR_DEAD_OBJECT:
+                        case AudioRecord.ERROR:
+                            continue;
                         default:
-                            out.write(mData, 0, BUFFER_SIZE);
-                            break;
+                            // Status indicates the number of bytes
+                            if (status != 0) {
+                                if (mTrackAmplitude.get()) {
+                                    for (int i = 0; i < data.length; i = i + 2) {
+                                        int value = data[i] & 0xff | data[i + 1] << 8;
+                                        if (value < 0) {
+                                            value = -value;
+                                        }
+                                        if (mMaxAmplitude < value) {
+                                            mMaxAmplitude = value;
+                                        }
+                                    }
+                                }
+                                out.write(data, 0, BUFFER_SIZE_IN_BYTES);
+                            }
                     }
                 } catch (IOException e) {
                     Log.e(TAG, "Failed to write audio stream", e);
                     // Stop recording
                     mIsRecording.set(false);
-                } finally {
-                    mPauseSemaphore.release();
                 }
             }
-        } catch (FileNotFoundException e) {
+            mRecord.stop();
+            mRecord.release();
+        } catch (IOException e) {
             Log.e(TAG, "Can't find output file", e);
-        } finally {
-            Utils.closeQuietly(out);
         }
     }
 }

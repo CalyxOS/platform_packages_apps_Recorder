@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The LineageOS Project
+ * Copyright (C) 2017-2022 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,33 +17,56 @@ package org.lineageos.recorder.utils;
 
 import android.util.Log;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
 
 public final class PcmConverter {
-    private static final long SAMPLE_RATE = 44100;
-    private static final int RECORDER_BPP = 16;
-    private static final int CHANNELS = 1;
-    private static final long BYTE_RATE = CHANNELS * SAMPLE_RATE * RECORDER_BPP / 8;
+    private final byte[] WAV_HEADER;
     private static final String TAG = "PcmConverter";
 
-    private PcmConverter() {
+    public PcmConverter(long sampleRate, int channels, int bitsPerSample) {
+        long byteRate = channels * sampleRate * bitsPerSample / 8;
+
+        WAV_HEADER = new byte[]{
+                'R', 'I', 'F', 'F',
+                0, 0, 0, 0, // data length placeholder
+                'W', 'A', 'V', 'E',
+                'f', 'm', 't', ' ', // 'fmt ' chunk
+                16, // 4 bytes: size of 'fmt ' chunk
+                0, 0, 0, 1, // format = 1
+                0,
+                (byte) channels,
+                0,
+                (byte) (sampleRate & 0xff), (byte) ((sampleRate >> 8) & 0xff), 0, 0, // sample rate
+                (byte) (byteRate & 0xff), (byte) ((byteRate >> 8) & 0xff),
+                (byte) ((byteRate >> 16) & 0xff), 0, // byte rate
+                (byte) (channels * bitsPerSample / 8),  // block align
+                0,
+                (byte) bitsPerSample, // bits per sample
+                0,
+                'd', 'a', 't', 'a',
+                0, 0, 0, 0, // audio length placeholder
+        };
     }
 
-    public static void convertToWave(File file, int bufferSize) {
-        FileInputStream input = null;
-        FileOutputStream output = null;
+    public void convertToWave(Path path, int bufferSize) {
+        InputStream input = null;
+        OutputStream output = null;
 
-        final File tmpFile = new File(file.getPath() + ".tmp");
+        final Path tmpPath = path.getParent().resolve(path.getFileName() + ".tmp");
 
         final byte[] data = new byte[bufferSize];
 
         try {
-            input = new FileInputStream(file);
-            output = new FileOutputStream(tmpFile);
-            long audioLength = input.getChannel().size();
+            Files.createFile(tmpPath);
+
+            input = Files.newInputStream(path);
+            output = Files.newOutputStream(tmpPath);
+            long audioLength = Files.size(path);
             long dataLength = audioLength + 36;
 
             writeWaveHeader(output, audioLength, dataLength);
@@ -60,19 +83,9 @@ public final class PcmConverter {
         // Now rename tmp file to output destination
         try {
             // Delete old file
-            //noinspection ResultOfMethodCallIgnored
-            file.delete();
+            Files.delete(path);
 
-            input = new FileInputStream(tmpFile);
-            output = new FileOutputStream(file);
-
-            while (input.read(data) != -1) {
-                output.write(data);
-            }
-
-            // Delete tmp file
-            //noinspection ResultOfMethodCallIgnored
-            tmpFile.delete();
+            Files.move(tmpPath, path);
         } catch (IOException e) {
             Log.e(TAG, "Failed to copy file to output destination", e);
         } finally {
@@ -82,55 +95,19 @@ public final class PcmConverter {
     }
 
     // http://stackoverflow.com/questions/4440015/java-pcm-to-wav
-    private static void writeWaveHeader(FileOutputStream out, long audioLength,
-                                        long dataLength) throws IOException {
-        byte[] header = new byte[44];
+    private void writeWaveHeader(OutputStream out, long audioLength,
+                                 long dataLength) throws IOException {
+        byte[] header = Arrays.copyOf(WAV_HEADER, WAV_HEADER.length);
 
-        header[0] = 'R';  // RIFF/WAVE header
-        header[1] = 'I';
-        header[2] = 'F';
-        header[3] = 'F';
         header[4] = (byte) (dataLength & 0xff);
         header[5] = (byte) ((dataLength >> 8) & 0xff);
         header[6] = (byte) ((dataLength >> 16) & 0xff);
         header[7] = (byte) ((dataLength >> 24) & 0xff);
-        header[8] = 'W';
-        header[9] = 'A';
-        header[10] = 'V';
-        header[11] = 'E';
-        header[12] = 'f';  // 'fmt ' chunk
-        header[13] = 'm';
-        header[14] = 't';
-        header[15] = ' ';
-        header[16] = 16;  // 4 bytes: size of 'fmt ' chunk
-        header[17] = 0;
-        header[18] = 0;
-        header[19] = 0;
-        header[20] = 1;  // format = 1
-        header[21] = 0;
-        header[22] = (byte) CHANNELS;
-        header[23] = 0;
-        header[24] = (byte) (SAMPLE_RATE & 0xff);
-        header[25] = (byte) ((SAMPLE_RATE >> 8) & 0xff);
-        header[26] = (byte) (0L);
-        header[27] = (byte) (0L);
-        header[28] = (byte) (BYTE_RATE & 0xff);
-        header[29] = (byte) ((BYTE_RATE >> 8) & 0xff);
-        header[30] = (byte) ((BYTE_RATE >> 16) & 0xff);
-        header[31] = (byte) (0L);
-        header[32] = (byte) (CHANNELS * RECORDER_BPP / 8);  // block align
-        header[33] = 0;
-        header[34] = RECORDER_BPP;  // bits per sample
-        header[35] = 0;
-        header[36] = 'd';
-        header[37] = 'a';
-        header[38] = 't';
-        header[39] = 'a';
         header[40] = (byte) (audioLength & 0xff);
         header[41] = (byte) ((audioLength >> 8) & 0xff);
         header[42] = (byte) ((audioLength >> 16) & 0xff);
         header[43] = (byte) ((audioLength >> 24) & 0xff);
 
-        out.write(header, 0, 44);
+        out.write(header, 0, header.length);
     }
 }

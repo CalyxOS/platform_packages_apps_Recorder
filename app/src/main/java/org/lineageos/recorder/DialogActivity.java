@@ -15,8 +15,6 @@
  */
 package org.lineageos.recorder;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -25,16 +23,22 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 
-import org.lineageos.recorder.utils.Utils;
+import org.lineageos.recorder.utils.PermissionManager;
+import org.lineageos.recorder.utils.PreferencesManager;
 
 public class DialogActivity extends AppCompatActivity {
-    private static final int REQUEST_LOCATION_PERMS = 214;
+    public static final String EXTRA_IS_RECORDING = "is_recording";
 
+    private PermissionManager mPermissionManager;
+    private PreferencesManager mPreferences;
     private SwitchCompat mLocationSwitch;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstance) {
         super.onCreate(savedInstance);
+
+        mPermissionManager = new PermissionManager(this);
+        mPreferences = new PreferencesManager(this);
 
         setFinishOnTouchOutside(true);
 
@@ -44,7 +48,7 @@ public class DialogActivity extends AppCompatActivity {
                 .setOnDismissListener(dialogInterface -> finish())
                 .show();
 
-        final boolean isRecording = Utils.isRecording(this);
+        final boolean isRecording = getIntent().getBooleanExtra(EXTRA_IS_RECORDING, false);
 
         mLocationSwitch = dialog.findViewById(
                 R.id.dialog_content_settings_location_switch);
@@ -62,31 +66,13 @@ public class DialogActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (hasLocationPermission()) {
-            toggleAfterPermissionRequest(requestCode);
-            return;
-        }
-
-        if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
-            new AlertDialog.Builder(this)
-                    .setTitle(R.string.dialog_permissions_title)
-                    .setMessage(getString(R.string.dialog_permissions_location))
-                    .setPositiveButton(R.string.dialog_permissions_ask,
-                            (dialog, position) -> {
-                                dialog.dismiss();
-                                askLocationPermission();
-                            })
-                    .setNegativeButton(R.string.dialog_permissions_dismiss,
-                            (dialog, position) -> mLocationSwitch.setChecked(false))
-                    .show();
-        } else {
-            // User has denied all the required permissions "forever"
-            new AlertDialog.Builder(this)
-                    .setTitle(R.string.dialog_permissions_title)
-                    .setMessage(R.string.snack_permissions_no_permission_location)
-                    .setPositiveButton(R.string.dialog_permissions_dismiss, null)
-                    .show();
-            mLocationSwitch.setChecked(false);
+        if (requestCode == PermissionManager.REQUEST_CODE) {
+            if (mPermissionManager.hasLocationPermission()) {
+                toggleAfterPermissionRequest();
+            } else {
+                mPermissionManager.onLocationPermissionDenied();
+                mLocationSwitch.setChecked(false);
+            }
         }
     }
 
@@ -104,12 +90,12 @@ public class DialogActivity extends AppCompatActivity {
     private void setupLocationSwitch(@NonNull SwitchCompat locationSwitch,
                                      boolean isRecording) {
         final boolean tagWithLocation;
-        if (Utils.getTagWithLocation(this)) {
-            if (hasLocationPermission()) {
+        if (mPreferences.getTagWithLocation()) {
+            if (mPermissionManager.hasLocationPermission()) {
                 tagWithLocation = true;
             } else {
                 // Permission revoked -> disabled feature
-                Utils.setTagWithLocation(this, false);
+                mPreferences.setTagWithLocation(false);
                 tagWithLocation = false;
             }
         } else {
@@ -123,13 +109,13 @@ public class DialogActivity extends AppCompatActivity {
         } else {
             locationSwitch.setOnCheckedChangeListener((button, isChecked) -> {
                 if (isChecked) {
-                    if (hasLocationPermission()) {
-                        Utils.setTagWithLocation(this, true);
+                    if (mPermissionManager.hasLocationPermission()) {
+                        mPreferences.setTagWithLocation(true);
                     } else {
-                        askLocationPermission();
+                        mPermissionManager.requestLocationPermission();
                     }
                 } else {
-                    Utils.setTagWithLocation(this, false);
+                    mPreferences.setTagWithLocation(false);
                 }
             });
         }
@@ -137,31 +123,19 @@ public class DialogActivity extends AppCompatActivity {
 
     private void setupHighQualitySwitch(@NonNull SwitchCompat highQualitySwitch,
                                         boolean isRecording) {
-        final boolean highQuality = Utils.getRecordInHighQuality(this);
+        final boolean highQuality = mPreferences.getRecordInHighQuality();
         highQualitySwitch.setChecked(highQuality);
 
         if (isRecording) {
             highQualitySwitch.setEnabled(false);
         } else {
             highQualitySwitch.setOnCheckedChangeListener((button, isChecked) ->
-                    Utils.setRecordingHighQuality(this, isChecked));
+                    mPreferences.setRecordingHighQuality(isChecked));
         }
     }
 
-    private boolean hasLocationPermission() {
-        int result = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION);
-        return result == PackageManager.PERMISSION_GRANTED;
-    }
-
-    private void askLocationPermission() {
-        requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                REQUEST_LOCATION_PERMS);
-    }
-
-    private void toggleAfterPermissionRequest(int requestCode) {
-        if (requestCode == REQUEST_LOCATION_PERMS) {
-            mLocationSwitch.setChecked(true);
-            Utils.setTagWithLocation(this, true);
-        }
+    private void toggleAfterPermissionRequest() {
+        mLocationSwitch.setChecked(true);
+        mPreferences.setTagWithLocation(true);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The LineageOS Project
+ * Copyright (C) 2021-2022 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.lineageos.recorder.service;
 
 import android.Manifest;
@@ -28,11 +27,18 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.Message;
+import android.os.Messenger;
+import android.os.RemoteException;
 import android.text.format.DateUtils;
 import android.util.Log;
 
+import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -42,19 +48,22 @@ import org.lineageos.recorder.BuildConfig;
 import org.lineageos.recorder.ListActivity;
 import org.lineageos.recorder.R;
 import org.lineageos.recorder.RecorderActivity;
+import org.lineageos.recorder.status.UiStatus;
 import org.lineageos.recorder.task.AddRecordingToContentProviderTask;
 import org.lineageos.recorder.task.TaskExecutor;
-import org.lineageos.recorder.utils.LastRecordHelper;
-import org.lineageos.recorder.utils.Utils;
+import org.lineageos.recorder.utils.RecordIntentHelper;
+import org.lineageos.recorder.utils.PreferencesManager;
 
-import java.io.File;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import java.lang.ref.WeakReference;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class SoundRecorderService extends Service {
     private static final String TAG = "SoundRecorderService";
@@ -64,32 +73,55 @@ public class SoundRecorderService extends Service {
     public static final String ACTION_PAUSE = BuildConfig.APPLICATION_ID + ".service.PAUSE";
     public static final String ACTION_RESUME = BuildConfig.APPLICATION_ID + ".service.RESUME";
 
-    public static final String EXTRA_LOCATION = "extra_filename";
-    private static final String FILE_NAME_BASE = "SoundRecords/%1$s (%2$s).%3$s";
-    private static final String FILE_NAME_LOCATION_FALLBACK = "Sound record";
-    private static final String FILE_NAME_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    public static final int MSG_REGISTER_CLIENT = 0;
+    public static final int MSG_UNREGISTER_CLIENT = 1;
+    public static final int MSG_UI_STATUS = 2;
+    public static final int MSG_SOUND_AMPLITUDE = 3;
+    public static final int MSG_TIME_ELAPSED = 4;
+
+    public static final String EXTRA_FILE_NAME = "extra_filename";
+    private static final String LEGACY_MUSIC_DIR = "Sound records";
 
     public static final int NOTIFICATION_ID = 60;
     private static final String NOTIFICATION_CHANNEL = "soundrecorder_notification_channel";
 
     private NotificationManager mNotificationManager;
+    private PreferencesManager mPreferencesManager;
     private TaskExecutor mTaskExecutor;
 
-    private final IBinder mBinder = new RecorderBinder(this);
-    private SoundRecording mRecorder = null;
-    private File mRecordFile = null;
+    private final Object mLock = new Object();
 
-    private TimerTask mVisualizerTask;
-    @Nullable
-    private IAudioVisualizer mAudioVisualizer;
+    @GuardedBy("mLock")
+    private final HashMap<IBinder, RecorderClient> mClients = new HashMap<>();
+    private final Handler mHandler = new Handler(Looper.myLooper()) {
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            switch (msg.what) {
+                case MSG_REGISTER_CLIENT:
+                    registerClient(RecorderClient.of(msg.replyTo, msg.replyTo.getBinder()));
+                    break;
+                case MSG_UNREGISTER_CLIENT:
+                    synchronized (mLock) {
+                        unregisterClientLocked(msg.replyTo.getBinder());
+                    }
+                    break;
+                default:
+                    super.handleMessage(msg);
+                    break;
+            }
+        }
+    };
+    private final Messenger mMessenger = new Messenger(mHandler);
+
+    private SoundRecording mRecorder = null;
+    private Path mRecordPath = null;
+
+    private Timer mAmplitudeTimer;
+    private Timer mElapsedTimeTimer;
 
     private boolean mIsPaused;
-    private TimerTask mElapsedTimeTask;
-    private final AtomicLong mElapsedTime = new AtomicLong();
-    private final StringBuilder mSbRecycle = new StringBuilder();
+    private long mElapsedTime;
 
-    private final SimpleDateFormat mDateFormat = new SimpleDateFormat(FILE_NAME_DATE_FORMAT,
-            Locale.getDefault());
     private final BroadcastReceiver mShutdownReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -100,7 +132,7 @@ public class SoundRecorderService extends Service {
     @NonNull
     @Override
     public IBinder onBind(Intent intent) {
-        return mBinder;
+        return mMessenger.getBinder();
     }
 
     @Override
@@ -115,75 +147,80 @@ public class SoundRecorderService extends Service {
             createNotificationChannel();
         }
 
+        mPreferencesManager = new PreferencesManager(this);
         mTaskExecutor = new TaskExecutor();
     }
 
     @Override
     public void onDestroy() {
-        mTaskExecutor.terminate(null);
         unregisterReceiver(mShutdownReceiver);
+        stopTimers();
+        unregisterClients();
+        mTaskExecutor.terminate(null);
         super.onDestroy();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null) {
-            switch (intent.getAction()) {
-                case ACTION_START:
-                    String locationName = intent.getStringExtra(EXTRA_LOCATION);
-                    return startRecording(locationName);
-                case ACTION_STOP:
-                    return stopRecording();
-                case ACTION_PAUSE:
-                    return pauseRecording();
-                case ACTION_RESUME:
-                    return resumeRecording();
-            }
+        if (intent == null) {
+            return START_NOT_STICKY;
         }
-
-        return super.onStartCommand(intent, flags, startId);
-    }
-
-    public void setAudioListener(@Nullable IAudioVisualizer audioVisualizer) {
-        mAudioVisualizer = audioVisualizer;
-    }
-
-    private int startRecording(@Nullable String locationName) {
-        boolean highQuality = Utils.getRecordInHighQuality(this);
-        mRecorder = highQuality ? new HighQualityRecorder() : new GoodQualityRecorder();
-
-        mRecordFile = createNewAudioFile(locationName, mRecorder.getFileExtension());
-        mIsPaused = false;
-        mElapsedTime.set(0);
-
-        try {
-            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-                    == PackageManager.PERMISSION_GRANTED) {
-                mRecorder.startRecording(mRecordFile);
-            } else {
-                Log.e(TAG, "Missing permission to record audio");
+        switch (intent.getAction()) {
+            case ACTION_START:
+                return startRecording(intent.getStringExtra(EXTRA_FILE_NAME))
+                        ? START_STICKY : START_NOT_STICKY;
+            case ACTION_STOP:
+                return stopRecording() ? START_STICKY : START_NOT_STICKY;
+            case ACTION_PAUSE:
+                return pauseRecording() ? START_STICKY : START_NOT_STICKY;
+            case ACTION_RESUME:
+                return resumeRecording() ? START_STICKY : START_NOT_STICKY;
+            default:
                 return START_NOT_STICKY;
-            }
-        } catch (IOException e) {
-            Log.e(TAG, "Error while starting the media recorder", e);
-            return START_NOT_STICKY;
         }
-
-        startTimers();
-        startForeground(NOTIFICATION_ID, createRecordingNotification());
-        Utils.setStatus(this, Utils.UiStatus.SOUND);
-        return START_STICKY;
     }
 
-    private int stopRecording() {
-        if (mRecorder == null) {
-            if (Utils.isRecording(this)) {
-                // Old crash?
-                Utils.setStatus(this, Utils.UiStatus.NOTHING);
-            }
-            return START_NOT_STICKY;
+    private boolean startRecording(String fileName) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.e(TAG, "Missing permission to record audio");
+            return false;
         }
 
+        mRecorder = mPreferencesManager.getRecordInHighQuality()
+                ? new HighQualityRecorder()
+                : new GoodQualityRecorder();
+
+        final Optional<Path> optPath = createNewAudioFile(fileName, mRecorder.getFileExtension());
+        if (optPath.isPresent()) {
+            mRecordPath = optPath.get();
+
+            mIsPaused = false;
+            mElapsedTime = 0;
+            try {
+                mRecorder.startRecording(mRecordPath);
+            } catch (IOException e) {
+                Log.e(TAG, "Error while starting the recorder", e);
+                return false;
+            }
+
+            notifyStatus(UiStatus.RECORDING);
+            notifyElapsedTime(0);
+            startTimers();
+            startForeground(NOTIFICATION_ID, createRecordingNotification(0));
+
+            return true;
+        } else {
+            Log.e(TAG, "Failed to prepare output file");
+            return false;
+        }
+    }
+
+    private boolean stopRecording() {
+        if (mRecorder == null) {
+            Log.e(TAG, "Trying to stop null recorder");
+            return false;
+        }
         if (mIsPaused) {
             mIsPaused = false;
             mRecorder.resumeRecording();
@@ -192,97 +229,211 @@ public class SoundRecorderService extends Service {
         stopTimers();
 
         boolean success = mRecorder.stopRecording();
-        if (!success || mRecordFile == null) {
+        if (success && mRecordPath != null) {
+            mTaskExecutor.runTask(new AddRecordingToContentProviderTask(
+                            getContentResolver(),
+                            mRecordPath,
+                            mRecorder.getMimeType()),
+                    this::onRecordCompleted,
+                    () -> Log.e(TAG, "Failed to save recording"));
+            return true;
+        } else {
             onRecordFailed();
-            return START_NOT_STICKY;
+            return false;
         }
-
-        mTaskExecutor.runTask(new AddRecordingToContentProviderTask(
-                        getContentResolver(),
-                        mRecordFile,
-                        mRecorder.getMimeType()),
-                this::onRecordCompleted,
-                () -> Log.e(TAG, "Failed to save recording"));
-        return START_STICKY;
     }
 
-    private int pauseRecording() {
+    private boolean pauseRecording() {
         if (mIsPaused) {
-            return START_NOT_STICKY;
+            Log.w(TAG, "Pausing already paused recording");
+        } else if (mRecorder == null) {
+            Log.e(TAG, "Pausing null recorder");
+        } else if (mRecorder.pauseRecording()) {
+            mIsPaused = true;
+            stopTimers();
+
+            notifyCurrentSoundAmplitude(0);
+            notifyStatus(UiStatus.PAUSED);
+
+            mNotificationManager.notify(NOTIFICATION_ID,
+                    createRecordingNotification(mElapsedTime));
+            return true;
+        } else {
+            Log.e(TAG, "Failed to pause the recorder");
         }
-
-        if (mRecorder == null) {
-            if (Utils.isRecording(this)) {
-                // Old crash?
-                Utils.setStatus(this, Utils.UiStatus.NOTHING);
-            }
-            return START_NOT_STICKY;
-        }
-
-        if (mAudioVisualizer != null) {
-            mAudioVisualizer.setAmplitude(0);
-        }
-        stopTimers();
-
-        if (!mRecorder.pauseRecording()) {
-            return START_NOT_STICKY;
-        }
-
-        mIsPaused = true;
-        mNotificationManager.notify(NOTIFICATION_ID, createRecordingNotification());
-        Utils.setStatus(this, Utils.UiStatus.PAUSED);
-
-        return START_STICKY;
+        return false;
     }
 
-    private int resumeRecording() {
+    private boolean resumeRecording() {
         if (!mIsPaused) {
-            return START_NOT_STICKY;
+            Log.w(TAG, "Resuming non-paused recording");
+        } else if (mRecorder == null) {
+            Log.e(TAG, "Resuming null recorder");
+        } else if (mRecorder.resumeRecording()) {
+            mIsPaused = false;
+            startTimers();
+
+            notifyStatus(UiStatus.RECORDING);
+
+            mNotificationManager.notify(NOTIFICATION_ID,
+                    createRecordingNotification(mElapsedTime));
+            return true;
+        } else {
+            Log.e(TAG, "Failed to resume the recorder");
         }
-
-        if (mRecorder == null) {
-            if (!Utils.isRecording(this)) {
-                // Old crash?
-                Utils.setStatus(this, Utils.UiStatus.NOTHING);
-            }
-            return START_NOT_STICKY;
-        }
-
-        if (!mRecorder.resumeRecording()) {
-            return START_NOT_STICKY;
-        }
-
-        startTimers();
-        mIsPaused = false;
-        mNotificationManager.notify(NOTIFICATION_ID, createRecordingNotification());
-        Utils.setStatus(this, Utils.UiStatus.SOUND);
-
-        return START_STICKY;
+        return false;
     }
 
-    private void startTimers() {
-        startElapsedTimeTask();
-        startVisualizerTask();
-    }
-
-    private void stopTimers() {
-        mElapsedTimeTask.cancel();
-        mVisualizerTask.cancel();
-    }
-
-    private void onRecordCompleted(@Nullable String uri) {
-        stopForeground(true);
+    private void onRecordCompleted(String uri) {
+        notifyStatus(UiStatus.READY);
+        stopForeground(STOP_FOREGROUND_REMOVE);
         if (uri != null) {
-            createShareNotification(uri);
+            mNotificationManager.notify(NOTIFICATION_ID,
+                    createShareNotification(uri));
         }
-        Utils.setStatus(this, Utils.UiStatus.NOTHING);
+        mRecorder = null;
     }
 
     private void onRecordFailed() {
         mNotificationManager.cancel(NOTIFICATION_ID);
-        stopForeground(true);
-        Utils.setStatus(this, Utils.UiStatus.NOTHING);
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        notifyStatus(UiStatus.READY);
     }
+
+    @NonNull
+    private Optional<Path> createNewAudioFile(@NonNull String fileName,
+                                              @NonNull String extension) {
+        final Path recordingDir;
+        if (Build.VERSION.SDK_INT >= 31) {
+            recordingDir = getExternalFilesDir(Environment.DIRECTORY_RECORDINGS).toPath();
+        } else {
+            recordingDir = getExternalFilesDir(Environment.DIRECTORY_MUSIC).toPath()
+                    .resolve(LEGACY_MUSIC_DIR);
+        }
+        final Path path = recordingDir.resolve(String.format(fileName, extension));
+        if (!Files.exists(recordingDir)) {
+            try {
+                Files.createDirectories(recordingDir);
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to create parent directories for output");
+                return Optional.empty();
+            }
+        }
+        return Optional.of(path);
+    }
+
+    /* Timers */
+
+    private void startTimers() {
+        startElapsedTimeTimer();
+        startAmplitudeTimer();
+    }
+
+    private void startElapsedTimeTimer() {
+        mElapsedTimeTimer = new Timer();
+        mElapsedTimeTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                final long newElapsedTime = ++mElapsedTime;
+                notifyElapsedTime(newElapsedTime);
+                Notification notification = createRecordingNotification(newElapsedTime);
+                mNotificationManager.notify(NOTIFICATION_ID, notification);
+            }
+        }, 1000, 1000);
+    }
+
+    private void startAmplitudeTimer() {
+        mAmplitudeTimer = new Timer();
+        mAmplitudeTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                notifyCurrentSoundAmplitude(mRecorder.getCurrentAmplitude());
+            }
+        }, 0, 350);
+    }
+
+    private void stopTimers() {
+        if (mElapsedTimeTimer != null) {
+            mElapsedTimeTimer.cancel();
+            mElapsedTimeTimer.purge();
+            mElapsedTimeTimer = null;
+        }
+        if (mAmplitudeTimer != null) {
+            mAmplitudeTimer.cancel();
+            mAmplitudeTimer.purge();
+            mAmplitudeTimer = null;
+        }
+    }
+
+    /* Clients */
+
+    private void registerClient(RecorderClient client) {
+        synchronized (mLock) {
+            if (unregisterClientLocked(client.token)) {
+                Log.i(TAG, "Client was already registered, override it.");
+            }
+            mClients.put(client.token, client);
+        }
+        try {
+            client.token.linkToDeath(new RecorderClientDeathRecipient(this, client), 0);
+
+            // Notify about the current status
+            final int currentStatus = mRecorder == null ? UiStatus.READY
+                    : mIsPaused ? UiStatus.PAUSED : UiStatus.RECORDING;
+
+            client.send(mHandler.obtainMessage(MSG_UI_STATUS, currentStatus));
+
+            // Also notify about elapsed time
+            if (currentStatus != UiStatus.READY) {
+                client.send(mHandler.obtainMessage(MSG_TIME_ELAPSED, mElapsedTime));
+            }
+        } catch (RemoteException ignored) {
+            // Already gone
+        }
+    }
+
+    private void unregisterClients() {
+        synchronized (mLock) {
+            for (final RecorderClient client : mClients.values()) {
+                client.token.unlinkToDeath(client.deathRecipient, 0);
+            }
+        }
+    }
+
+    @GuardedBy("mLock")
+    private boolean unregisterClientLocked(IBinder token) {
+        final RecorderClient client = mClients.remove(token);
+        if (client == null) {
+            return false;
+        }
+
+        token.unlinkToDeath(client.deathRecipient, 0);
+        return true;
+    }
+
+    private void notifyStatus(@UiStatus int newStatus) {
+        notifyClients(MSG_UI_STATUS, newStatus);
+    }
+
+    private void notifyCurrentSoundAmplitude(int amplitude) {
+        notifyClients(MSG_SOUND_AMPLITUDE, amplitude);
+    }
+
+    private void notifyElapsedTime(long seconds) {
+        notifyClients(MSG_TIME_ELAPSED, seconds);
+    }
+
+    private void notifyClients(int what, @NonNull Object obj) {
+        final List<RecorderClient> clients;
+        synchronized (mLock) {
+            clients = new ArrayList<>(mClients.values());
+        }
+        for (final RecorderClient client : clients) {
+            client.send(mHandler.obtainMessage(what, obj));
+        }
+    }
+
+    /* Notifications */
 
     private void createNotificationChannel() {
         CharSequence name = getString(R.string.sound_channel_title);
@@ -293,23 +444,18 @@ public class SoundRecorderService extends Service {
         mNotificationManager.createNotificationChannel(notificationChannel);
     }
 
-    @Nullable
-    private Notification createRecordingNotification() {
-        if (mNotificationManager == null) {
-            return null;
-        }
-
+    private Notification createRecordingNotification(long elapsedTime) {
         Intent intent = new Intent(this, RecorderActivity.class);
         PendingIntent pi = PendingIntent.getActivity(this, 0, intent,
                 PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stopPIntent = PendingIntent.getService(this, 0,
-                new Intent(this, SoundRecorderService.class).setAction(ACTION_STOP),
+                new Intent(this, SoundRecorderService.class)
+                        .setAction(ACTION_STOP),
                 PendingIntent.FLAG_IMMUTABLE);
 
-        String duration = DateUtils.formatElapsedTime(mSbRecycle, mElapsedTime.get());
+        String duration = DateUtils.formatElapsedTime(elapsedTime);
         NotificationCompat.Builder nb = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL)
                 .setOngoing(true)
-                .setContentTitle(getString(R.string.sound_notification_title))
                 .setContentText(getString(R.string.sound_notification_message, duration))
                 .setSmallIcon(R.drawable.ic_notification_sound)
                 .setColor(ContextCompat.getColor(this, R.color.colorAccent))
@@ -317,43 +463,43 @@ public class SoundRecorderService extends Service {
 
         if (mIsPaused) {
             PendingIntent resumePIntent = PendingIntent.getService(this, 0,
-                    new Intent(this, SoundRecorderService.class).setAction(ACTION_RESUME),
+                    new Intent(this, SoundRecorderService.class)
+                            .setAction(ACTION_RESUME),
                     PendingIntent.FLAG_IMMUTABLE);
+            nb.setContentTitle(getString(R.string.sound_recording_title_paused));
             nb.addAction(R.drawable.ic_resume, getString(R.string.resume), resumePIntent);
         } else {
             PendingIntent pausePIntent = PendingIntent.getService(this, 0,
-                    new Intent(this, SoundRecorderService.class).setAction(ACTION_PAUSE),
+                    new Intent(this, SoundRecorderService.class)
+                            .setAction(ACTION_PAUSE),
                     PendingIntent.FLAG_IMMUTABLE);
+            nb.setContentTitle(getString(R.string.sound_recording_title_working));
             nb.addAction(R.drawable.ic_pause, getString(R.string.pause), pausePIntent);
         }
         nb.addAction(R.drawable.ic_stop, getString(R.string.stop), stopPIntent);
         return nb.build();
     }
 
-    private void createShareNotification(@Nullable String uri) {
-        if (uri == null) {
-            return;
-        }
-
+    private Notification createShareNotification(String uri) {
         Uri fileUri = Uri.parse(uri);
-        LastRecordHelper.setLastItem(this, uri);
+        mPreferencesManager.setLastItemUri(uri);
         String mimeType = mRecorder.getMimeType();
 
         Intent intent = new Intent(this, ListActivity.class);
         PendingIntent pi = PendingIntent.getActivity(this, 0, intent,
                 PendingIntent.FLAG_IMMUTABLE);
         PendingIntent playPIntent = PendingIntent.getActivity(this, 0,
-                LastRecordHelper.getOpenIntent(fileUri, mimeType),
+                RecordIntentHelper.getOpenIntent(fileUri, mimeType),
                 PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent sharePIntent = PendingIntent.getActivity(this, 0,
-                LastRecordHelper.getShareIntent(fileUri, mimeType),
+                RecordIntentHelper.getShareIntent(fileUri, mimeType),
                 PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent deletePIntent = PendingIntent.getActivity(this, 0,
-                LastRecordHelper.getDeleteIntent(this),
+                RecordIntentHelper.getDeleteIntent(this),
                 PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        String duration = DateUtils.formatElapsedTime(mSbRecycle, mElapsedTime.get());
-        Notification notification = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL)
+        String duration = DateUtils.formatElapsedTime(mElapsedTime);
+        return new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL)
                 .setWhen(System.currentTimeMillis())
                 .setContentTitle(getString(R.string.sound_notification_title))
                 .setContentText(getString(R.string.sound_notification_message, duration))
@@ -364,48 +510,52 @@ public class SoundRecorderService extends Service {
                 .addAction(R.drawable.ic_delete, getString(R.string.delete), deletePIntent)
                 .setContentIntent(pi)
                 .build();
-        mNotificationManager.notify(NOTIFICATION_ID, notification);
     }
 
-    @NonNull
-    private File createNewAudioFile(@Nullable String locationName,
-                                    @NonNull String extension) {
-        String fileName = String.format(FILE_NAME_BASE,
-                locationName == null ? FILE_NAME_LOCATION_FALLBACK : locationName,
-                mDateFormat.format(new Date()),
-                extension);
-        File file = new File(getExternalFilesDir(Environment.DIRECTORY_MUSIC), fileName);
-        File recordingDir = file.getParentFile();
-        if (recordingDir != null && !recordingDir.exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            recordingDir.mkdirs();
+    public static final class RecorderClient {
+        final Messenger messenger;
+        final IBinder token;
+        @Nullable
+        IBinder.DeathRecipient deathRecipient;
+
+        private RecorderClient(Messenger messenger, IBinder token) {
+            this.messenger = messenger;
+            this.token = token;
         }
-        return file;
+
+        static RecorderClient of(Messenger messenger, IBinder token) {
+            return new RecorderClient(messenger, token);
+        }
+
+        void send(Message message) {
+            try {
+                messenger.send(message);
+
+            } catch (RemoteException e) {
+                Log.e(TAG, "Failed to send message", e);
+            }
+        }
     }
 
-    private void startElapsedTimeTask() {
-        mElapsedTimeTask = new TimerTask() {
-            @Override
-            public void run() {
-                mElapsedTime.incrementAndGet();
-                Notification notification = createRecordingNotification();
-                mNotificationManager.notify(NOTIFICATION_ID, notification);
-            }
-        };
-        Timer timer = new Timer();
-        timer.scheduleAtFixedRate(mElapsedTimeTask, 1000, 1000);
-    }
+    private static class RecorderClientDeathRecipient implements IBinder.DeathRecipient {
+        private final WeakReference<SoundRecorderService> mServiceRef;
+        private final RecorderClient mClient;
 
-    private void startVisualizerTask() {
-        mVisualizerTask = new TimerTask() {
-            @Override
-            public void run() {
-                if (mAudioVisualizer != null) {
-                    mAudioVisualizer.setAmplitude(mRecorder.getCurrentAmplitude());
-                }
+        RecorderClientDeathRecipient(SoundRecorderService service, RecorderClient client) {
+            mServiceRef = new WeakReference<>(service);
+            mClient = client;
+            mClient.deathRecipient = this;
+        }
+
+        @Override
+        public void binderDied() {
+            SoundRecorderService service = mServiceRef.get();
+            if (service == null) {
+                return;
             }
-        };
-        Timer timer = new Timer();
-        timer.scheduleAtFixedRate(mVisualizerTask, 0, 350);
+            synchronized (service.mLock) {
+                service.unregisterClientLocked(mClient.token);
+            }
+        }
     }
 }
