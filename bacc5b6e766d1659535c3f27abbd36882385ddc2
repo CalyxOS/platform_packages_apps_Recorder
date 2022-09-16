@@ -16,6 +16,24 @@
       "message": "Maybe hold this for the notification fix and merge at once?",
       "revId": "bacc5b6e766d1659535c3f27abbd36882385ddc2",
       "serverId": "35266860-6252-469c-a67d-185064479fc0"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "36a13cfa_6e123763",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2022-09-16T16:25:52Z",
+      "side": 1,
+      "message": "I\u0027m fine with having multiple merges, your call.",
+      "parentUuid": "9c79e533_d80c28fd",
+      "revId": "bacc5b6e766d1659535c3f27abbd36882385ddc2",
+      "serverId": "35266860-6252-469c-a67d-185064479fc0"
     }
   ]
 }
