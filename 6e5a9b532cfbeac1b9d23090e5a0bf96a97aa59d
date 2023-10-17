@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "411f3f5a_6090dc88",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000065
+      },
+      "writtenOn": "2023-10-17T13:06:25Z",
+      "side": 1,
+      "message": "Fixes recorder crash",
+      "revId": "6e5a9b532cfbeac1b9d23090e5a0bf96a97aa59d",
+      "serverId": "35266860-6252-469c-a67d-185064479fc0"
+    }
+  ]
+}
