@@ -154,17 +154,14 @@ public class HighQualityRecorder implements SoundRecording {
                             // Status indicates the number of bytes
                             if (status != 0) {
                                 if (mTrackAmplitude.get()) {
-                                    for (int i = 0; i < data.length; i = i + 2) {
-                                        int value = data[i] & 0xff | data[i + 1] << 8;
-                                        if (value < 0) {
-                                            value = -value;
-                                        }
+                                    for (int i = 0; i < status; i = i + 2) {
+                                        int value = Math.abs(data[i] | data[i + 1] << 8);
                                         if (mMaxAmplitude < value) {
                                             mMaxAmplitude = value;
                                         }
                                     }
                                 }
-                                out.write(data, 0, BUFFER_SIZE_IN_BYTES);
+                                out.write(data, 0, status);
                             }
                     }
                 } catch (IOException e) {
