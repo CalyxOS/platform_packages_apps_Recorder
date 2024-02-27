@@ -6,5 +6,5 @@
 package org.lineageos.recorder
 
 object BuildConfig {
-    const val APPLICATION_ID = "org.lineageos.recorder"
+    const val APPLICATION_ID = "org.calyxos.recorder"
 }
