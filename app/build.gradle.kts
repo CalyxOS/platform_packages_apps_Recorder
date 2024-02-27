@@ -1,9 +1,15 @@
+/*
+ * SPDX-FileCopyrightText: 2023-2024 The LineageOS Project
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import org.lineageos.generatebp.GenerateBpPlugin
 import org.lineageos.generatebp.GenerateBpPluginExtension
 import org.lineageos.generatebp.models.Module
 
 plugins {
     id("com.android.application")
+    id("kotlin-android")
 }
 
 apply {
@@ -12,7 +18,7 @@ apply {
 
 buildscript {
     repositories {
-        maven("https://raw.githubusercontent.com/lineage-next/gradle-generatebp/v1.3/.m2")
+        maven("https://raw.githubusercontent.com/lineage-next/gradle-generatebp/v1.6/.m2")
     }
 
     dependencies {
@@ -21,13 +27,13 @@ buildscript {
 }
 
 android {
-    compileSdk = 33
+    compileSdk = 34
     namespace = "org.lineageos.recorder"
 
     defaultConfig {
         applicationId = "org.calyxos.recorder"
         minSdk = 29
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.1"
     }
@@ -52,14 +58,22 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
     }
 }
 
 dependencies {
-    implementation("androidx.appcompat:appcompat:1.5.1")
-    implementation("com.google.android.material:material:1.6.1")
+    // Align versions of all Kotlin components
+    implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.0"))
+
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.core:core-ktx:1.10.1")
+    implementation("com.google.android.material:material:1.9.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 }
 
@@ -69,7 +83,7 @@ configure<GenerateBpPluginExtension> {
         when {
             module.group.startsWith("androidx") -> true
             module.group.startsWith("org.jetbrains") -> true
-            module.group == "com.google.android.material" -> true
+            module.group == "com.google.errorprone" -> true
             module.group == "com.google.guava" -> true
             else -> false
         }
