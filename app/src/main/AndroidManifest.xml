@@ -70,12 +70,6 @@
             android:name=".service.SoundRecorderService"
             android:exported="false"
             android:foregroundServiceType="microphone">
-            <intent-filter>
-                <action android:name="org.calyxos.recorder.service.START" />
-                <action android:name="org.calyxos.recorder.service.STOP" />
-                <action android:name="org.calyxos.recorder.service.PAUSE" />
-                <action android:name="org.calyxos.recorder.service.RESUME" />
-            </intent-filter>
         </service>
     </application>
 </manifest>
