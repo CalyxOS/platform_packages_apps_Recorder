@@ -4,7 +4,17 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
+    <string name="app_name">Taifeadán</string>
+    <string name="share">Comhroinn</string>
     <string name="dialog_permissions_notifications">Teastaíonn cead fógraí ó thaifeadán chun rialuithe taifeadta a thaispeáint</string>
     <string name="dialog_permissions_mic_notifications">Teastaíonn cead ó mhicreafón ó thaifeadán chun cead fuaime agus fógraí a thaifeadadh chun rialuithe taifeadta a thaispeáint</string>
     <string name="dialog_permissions_phone_notifications">Teastaíonn rochtain stádais ghutháin ar Thaifeadán chun an aip seo a chosc ó thaifeadadh agus tú ag glaoch agus cead fógraí a thabhairt chun rialuithe taifeadta a thaispeáint</string>
+    <string name="dialog_permissions_mic_phone_notifications">Teastaíonn cead ó mhicreafón ó thaifeadán chun fuaim a thaifeadadh, rochtain ar stádas gutháin chun an aip seo a chosc ó thaifeadadh agus tú ag glaoch, agus cead fógraí chun rialuithe taifeadta a thaispeáint</string>
+    <plurals name="recording_selection_count">
+        <item quantity="one">%d roghnaithe</item>
+        <item quantity="two">%d roghnaithe</item>
+        <item quantity="few">%d roghnaithe</item>
+        <item quantity="many">%d roghnaithe</item>
+        <item quantity="other">%d roghnaithe</item>
+    </plurals>
 </resources>
