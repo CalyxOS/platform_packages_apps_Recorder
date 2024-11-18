@@ -33,6 +33,12 @@ android_app {
 
     sdk_version: "34",
 
+    optimize: {
+        optimize: true,
+        proguard_flags_files: ["proguard-rules.pro"],
+        shrink_resources: true,
+    },
+
     aaptflags: [
         "--rename-manifest-package",
         "org.calyxos.recorder",

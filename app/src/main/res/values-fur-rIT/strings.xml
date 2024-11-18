@@ -56,4 +56,8 @@
     <string name="delete_all_message">Eliminâ pardabon dutis lis regjistrazions? Nol è pussibil tornâ indaûr di cheste operazion</string>
     <string name="delete_selected_title">Elimine selezionâts</string>
     <string name="delete_selected_message">Eliminâ pardabon lis regjistrazions selezionadis? Nol è pussibil tornâ indaûr di cheste operazion</string>
+    <plurals name="recording_selection_count">
+        <item quantity="one">%d selezionât</item>
+        <item quantity="other">%d selezionâts</item>
+    </plurals>
 </resources>

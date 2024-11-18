@@ -56,4 +56,7 @@
     <string name="delete_all_message">정말 모든 녹음을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</string>
     <string name="delete_selected_title">선택 항목 삭제</string>
     <string name="delete_selected_message">정말 선택한 녹음을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</string>
+    <plurals name="recording_selection_count">
+        <item quantity="other">%d개 항목 선택함</item>
+    </plurals>
 </resources>
