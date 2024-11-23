@@ -12,46 +12,38 @@ import android.media.MediaRecorder
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import org.lineageos.recorder.utils.PcmConverter
-import java.io.BufferedOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.Path
-import java.util.concurrent.atomic.AtomicBoolean
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.math.abs
 
 class HighQualityRecorder : SoundRecording {
     private var record: AudioRecord? = null
-    private var pcmConverter: PcmConverter? = null
-    private var path: Path? = null
+    private var file: File? = null
     private var maxAmplitude = 0
-    private var thread: Thread? = null
-    private val isRecording = AtomicBoolean(false)
-    private val trackAmplitude = AtomicBoolean(false)
+    private var isRecording = false
 
     @RequiresPermission(permission.RECORD_AUDIO)
-    override fun startRecording(path: Path) {
-        this.path = path
+    override fun startRecording(file: File) {
+        this.file = file
 
         val audioFormat = AudioFormat.Builder()
             .setSampleRate(SAMPLING_RATE)
             .setChannelMask(CHANNEL_IN)
             .setEncoding(FORMAT)
             .build()
-        pcmConverter = PcmConverter(
-            audioFormat.sampleRate.toLong(),
-            audioFormat.channelCount,
-            audioFormat.frameSizeInBytes * 8 / audioFormat.channelCount
-        )
         record = AudioRecord(
             MediaRecorder.AudioSource.DEFAULT, audioFormat.sampleRate,
-            audioFormat.channelMask, audioFormat.encoding, BUFFER_SIZE_IN_BYTES
+            audioFormat.channelMask, audioFormat.encoding, BUFFER_SIZE
         ).apply {
             startRecording()
         }
-        isRecording.set(true)
-        thread = Thread { recordingThreadImpl() }.apply {
-            start()
-        }
+
+        isRecording = true
+
+        Thread { recordingThreadImpl() }.start()
     }
 
     override fun stopRecording(): Boolean {
@@ -59,26 +51,17 @@ class HighQualityRecorder : SoundRecording {
             return false
         }
 
-        isRecording.set(false)
+        isRecording = false
 
-        try {
-            thread?.join(1000)
-        } catch (e: InterruptedException) {
-            // Wait at most 1 second, if we fail save the current data
-        }
-
-        path?.also {
-            pcmConverter?.convertToWave(it)
-        } ?: run {
-            Log.w(TAG, "Null path")
-            return false
-        }
+        record?.stop()
+        record?.release()
+        record = null
 
         return true
     }
 
     override fun pauseRecording(): Boolean {
-        if (!isRecording.get()) {
+        if (!isRecording) {
             return false
         }
 
@@ -88,7 +71,7 @@ class HighQualityRecorder : SoundRecording {
     }
 
     override fun resumeRecording(): Boolean {
-        if (!isRecording.get()) {
+        if (!isRecording) {
             return false
         }
         record?.startRecording()
@@ -97,63 +80,32 @@ class HighQualityRecorder : SoundRecording {
 
     override val currentAmplitude: Int
         get() {
-            if (!trackAmplitude.get()) {
-                trackAmplitude.set(true)
-            }
-            val value = maxAmplitude
-            maxAmplitude = 0
-            return value
+            return maxAmplitude
         }
 
     private fun recordingThreadImpl() {
         try {
-            BufferedOutputStream(Files.newOutputStream(path)).use { out ->
-                val data = ByteArray(BUFFER_SIZE_IN_BYTES)
-                while (isRecording.get()) {
-                    try {
-                        val record = record ?: throw NullPointerException("Null record")
+            FileOutputStream(file).use { out ->
+                PcmConverter.writeWavHeader(out, SAMPLING_RATE, CHANNEL_IN)
 
-                        when (val status = record.read(data, 0, BUFFER_SIZE_IN_BYTES)) {
-                            AudioRecord.ERROR_INVALID_OPERATION,
-                            AudioRecord.ERROR_BAD_VALUE -> {
-                                Log.e(TAG, "Error reading audio record data")
-                                isRecording.set(false)
-                            }
+                val buffer = ByteArray(BUFFER_SIZE)
+                while (isRecording) {
+                    val read = record?.read(buffer, 0, BUFFER_SIZE) ?: 0
+                    if (read > 0) {
+                        out.write(buffer, 0, read)
 
-                            AudioRecord.ERROR_DEAD_OBJECT,
-                            AudioRecord.ERROR -> continue
-
-                            // Status indicates the number of bytes
-                            else -> if (status != 0) {
-                                if (trackAmplitude.get()) {
-                                    var i = 0
-                                    while (i < status) {
-                                        val value = abs(
-                                            data[i].toInt() or (data[i + 1].toInt() shl 8)
-                                        )
-                                        if (maxAmplitude < value) {
-                                            maxAmplitude = value
-                                        }
-                                        i += 2
-                                    }
-                                }
-                                out.write(data, 0, status)
-                            }
+                        maxAmplitude = 0
+                        for (i in 0 until read step 2) {
+                            val sample = ByteBuffer.wrap(buffer, i, 2)
+                                .order(ByteOrder.LITTLE_ENDIAN)
+                                .short
+                                .toInt()
+                            maxAmplitude = maxOf(maxAmplitude, abs(sample))
                         }
-                    } catch (e: IOException) {
-                        Log.e(TAG, "Failed to write audio stream", e)
-                        // Stop recording
-                        isRecording.set(false)
-                    } catch (e: NullPointerException) {
-                        Log.e(TAG, "Null record", e)
-                        // Stop recording
-                        isRecording.set(false)
                     }
                 }
-                record?.let {
-                    it.stop()
-                    it.release()
-                }
+
+                PcmConverter.updateWavHeader(out)
             }
         } catch (e: IOException) {
             Log.e(TAG, "Can't find output file", e)
@@ -170,7 +122,7 @@ class HighQualityRecorder : SoundRecording {
         private const val SAMPLING_RATE = 44100
         private const val CHANNEL_IN = AudioFormat.CHANNEL_IN_STEREO
         private const val FORMAT = AudioFormat.ENCODING_PCM_16BIT
-        private val BUFFER_SIZE_IN_BYTES = 2 * AudioRecord.getMinBufferSize(
+        private val BUFFER_SIZE = AudioRecord.getMinBufferSize(
             SAMPLING_RATE,
             CHANNEL_IN,
             FORMAT

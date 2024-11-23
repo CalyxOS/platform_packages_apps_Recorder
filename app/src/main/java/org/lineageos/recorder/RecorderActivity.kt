@@ -331,6 +331,7 @@ class RecorderActivity : AppCompatActivity(R.layout.activity_main) {
 
     private fun confirmLastResult() {
         val resultIntent = Intent().setData(preferencesManager.lastItemUri)
+            .setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         setResult(RESULT_OK, resultIntent)
         finish()
     }

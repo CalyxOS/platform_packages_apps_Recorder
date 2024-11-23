@@ -56,4 +56,8 @@
     <string name="delete_all_message">Möchtest du wirklich alle Aufnahmen löschen? Dies kann nicht rückgängig gemacht werden</string>
     <string name="delete_selected_title">Markierte löschen</string>
     <string name="delete_selected_message">Möchtest du die ausgewählten Aufnahmen wirklich löschen? Dies kann nicht rückgängig gemacht werden</string>
+    <plurals name="recording_selection_count">
+        <item quantity="one">%d ausgewählt</item>
+        <item quantity="other">%d ausgewählt</item>
+    </plurals>
 </resources>
