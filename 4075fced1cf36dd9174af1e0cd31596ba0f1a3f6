@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "ff8a9718_a86481f3",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000004
+      },
+      "writtenOn": "2025-01-15T21:57:44Z",
+      "side": 1,
+      "message": "Rebased to fix minor conflict after lineage updates",
+      "revId": "4075fced1cf36dd9174af1e0cd31596ba0f1a3f6",
+      "serverId": "35266860-6252-469c-a67d-185064479fc0"
+    }
+  ]
+}
