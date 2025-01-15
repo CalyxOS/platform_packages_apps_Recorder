@@ -1,12 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2017-2024 The LineageOS Project
+ * SPDX-FileCopyrightText: 2017-2025 The LineageOS Project
  * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.lineageos.recorder
 
-import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import android.widget.CompoundButton
 import androidx.appcompat.app.AppCompatActivity
@@ -24,8 +22,8 @@ class DialogActivity : AppCompatActivity() {
 
     private val preferences by lazy { PreferencesManager(this) }
 
-    override fun onCreate(savedInstance: Bundle?) {
-        super.onCreate(savedInstance)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
         setFinishOnTouchOutside(true)
 
@@ -45,10 +43,11 @@ class DialogActivity : AppCompatActivity() {
     }
 
     override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<String>,
-        results: IntArray
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray,
     ) {
-        super.onRequestPermissionsResult(requestCode, permissions, results)
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PermissionManager.REQUEST_CODE) {
             if (permissionManager.hasLocationPermission()) {
                 toggleAfterPermissionRequest()
@@ -56,23 +55,6 @@ class DialogActivity : AppCompatActivity() {
                 permissionManager.onLocationPermissionDenied()
                 locationSwitch.isChecked = false
             }
-        }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        finish()
-    }
-
-    override fun finish() {
-        super.finish()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            overrideActivityTransition(
-                OVERRIDE_TRANSITION_CLOSE, 0, android.R.anim.fade_out, Color.TRANSPARENT
-            )
-        } else {
-            @Suppress("deprecation")
-            overridePendingTransition(0, android.R.anim.fade_out)
         }
     }
 
