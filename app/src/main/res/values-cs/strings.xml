@@ -56,4 +56,10 @@
     <string name="delete_all_message">Opravdu chcete odstranit všechny záznamy? Tato akce je nevratná</string>
     <string name="delete_selected_title">Odstranit vybrané</string>
     <string name="delete_selected_message">Opravdu chcete odstranit vybrané záznamy? Tato akce je nevratná</string>
+    <plurals name="recording_selection_count">
+        <item quantity="one">%d vybrán</item>
+        <item quantity="few">%d vybrány</item>
+        <item quantity="many">%d vybraných</item>
+        <item quantity="other">%d vybraných</item>
+    </plurals>
 </resources>
