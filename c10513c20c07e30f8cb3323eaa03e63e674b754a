@@ -16,6 +16,23 @@
       "message": "recorder app has `org.calyxos.recorder` package name.",
       "revId": "c10513c20c07e30f8cb3323eaa03e63e674b754a",
       "serverId": "35266860-6252-469c-a67d-185064479fc0"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "bc69ecc0_428e7c59",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000004
+      },
+      "writtenOn": "2026-03-23T18:29:30Z",
+      "side": 1,
+      "message": "The issue mentioned in https://gitlab.com/CalyxOS/calyxos/-/work_items/3458 remains. Pressing on app icon shortcut says app is not installed.",
+      "revId": "c10513c20c07e30f8cb3323eaa03e63e674b754a",
+      "serverId": "35266860-6252-469c-a67d-185064479fc0"
     }
   ]
 }
