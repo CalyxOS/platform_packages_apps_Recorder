@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">تۆمارکەر</string>
+    <string name="share">هاوبەشکردن</string>
+    <string name="share_selected">هاوبەشکردنی هەڵبژێردراو</string>
+    <string name="stop">وەستاندن</string>
+    <string name="play">لێدان</string>
+    <string name="pause">ڕاگرتنی کاتی</string>
+    <string name="resume">دەستپێکردنەوە</string>
+    <string name="delete">سڕینەوە</string>
+    <string name="delete_all">سڕینەوەی هەمووان</string>
+    <string name="delete_selected">سڕینەوەی هەڵبژێردراو</string>
+    <string name="cancel">پاشگەزبوونەوە</string>
+    <string name="rename">گۆڕینی ناو</string>
+    <string name="delete_title">سڕینەوەی تۆمار</string>
+    <string name="delete_recording_message">ئایا دڵنیایت لە سڕینەوەی ئەم تۆمارە؟ ئەم کارە ناگەڕێتەوە</string>
+    <string name="confirm">پەسەندکردن</string>
+    <string name="discard">فڕێدان</string>
+    <string name="record_again">دووبارە تۆمارکردنەوە</string>
+    <string name="confirm_result_title">تۆمارەکە بەکاربهێنرێت؟</string>
+    <string name="confirm_result_message">ئایا دەتەوێت دوایین تۆمار بەکاربهێنیت؟</string>
+    <string name="sound_notification_title">تۆمارکەری دەنگ</string>
+    <string name="sound_notification_message">ماوەی دەنگ: %1$s</string>
+    <string name="sound_recording_title_working">تۆمارکردن...</string>
+    <string name="sound_recording_title_paused">ڕاگیراوە</string>
+    <string name="sound_last_title">دوایین تۆمار</string>
+    <string name="sound_channel_title">تۆمارکردنی دەنگ</string>
+    <string name="sound_channel_desc">ئاگادارییەکی بەردەوام لە کاتی تۆمارکردنی دەنگ و ئاگادارییەک دوای تەواوبوونی</string>
+    <string name="settings_title">ڕێکخستنەکان</string>
+    <string name="settings_location_message">شوێنی ئێستات زیاد بکە بۆ سەر تۆمارەکانت</string>
+    <string name="settings_quality_high">تۆمارکردن بە کوالێتی بەرز</string>
+    <string name="dialog_permissions_title">مۆڵەتەکان</string>
+    <string name="dialog_permissions_mic">تۆمارکەر پێویستی بە مۆڵەتی مایکرۆفۆن هەیە بۆ تۆمارکردنی دەنگ</string>
+    <string name="dialog_permissions_phone">تۆمارکەر پێویستی بە دەستگەیشتن بە دۆخی مۆبایل هەیە بۆ ئەوەی لە کاتی پەیوەندیدا تۆمارکردن ڕابگرێت</string>
+    <string name="dialog_permissions_notifications">تۆمارکەر پێویستی بە مۆڵەتی ئاگادارکردنەوە هەیە بۆ پیشاندانی دوگمەکانی کۆنتڕۆڵ</string>
+    <string name="dialog_permissions_mic_phone">تۆمارکەر پێویستی بە مۆڵەتی مایکرۆفۆن و دۆخی مۆبایل هەیە بۆ تۆمارکردنی دەنگ و ڕاگرتنی لە کاتی پەیوەندیدا</string>
+    <string name="dialog_permissions_mic_notifications">تۆمارکەر پێویستی بە مۆڵەتی مایکرۆفۆن و ئاگادارکردنەوە هەیە بۆ تۆمارکردنی دەنگ و پیشاندانی دوگمەکانی کۆنتڕۆڵ</string>
+    <string name="dialog_permissions_phone_notifications">تۆمارکەر پێویستی بە مۆڵەتی دۆخی مۆبایل و ئاگادارکردنەوە هەیە بۆ ڕاگرتنی تۆمارکردن لە کاتی پەیوەندی و پیشاندانی کۆنتڕۆڵەکان</string>
+    <string name="dialog_permissions_mic_phone_notifications">تۆمارکەر پێویستی بە مۆڵەتی مایکرۆفۆن، دۆخی مۆبایل، و ئاگادارکردنەوە هەیە بۆ کارکردنی تەواو</string>
+    <string name="dialog_permissions_location">تۆمارکەر پێویستی بە مۆڵەتی شوێن هەیە بۆ ئەوەی بە شێوەیەکی خۆکار تۆمارەکانت پۆلێن بکات</string>
+    <string name="dialog_permissions_ask">دووبارە بپرسەوە</string>
+    <string name="dialog_permissions_dismiss">لادان</string>
+    <string name="snack_permissions_no_permission">مۆڵەتە پێویستەکان ڕەتکراونەتەوە، لە ڕێکخستنەکانی ئەپەوە چالاکیان بکە بۆ دەستپێکردنی تۆمارکردن</string>
+    <string name="snack_permissions_no_permission_location">مۆڵەتی شوێن ڕەتکراوەتەوە، لە ڕێکخستنەکان چالاکی بکە بۆ دیاریکردنی شوێنی تۆمارەکانت</string>
+    <string name="main_sound_action">تۆمارکردنی دەنگ</string>
+    <string name="list_title">تۆمارەکانم</string>
+    <string name="list_error_empty">هەموو تۆمارەکانت لێرە پیشان دەدرێن</string>
+    <string name="list_edit_title">گۆڕینی ناوی تۆمار</string>
+    <string name="list_edit_confirm">گۆڕین</string>
+    <string name="list_item_menu">کردارە زیاترەکان</string>
+    <string name="delete_all_title">سڕینەوەی هەمووان</string>
+    <string name="delete_all_message">ئایا دڵنیایت لە سڕینەوەی هەموو تۆمارەکان؟ ئەم کارە ناگەڕێتەوە</string>
+    <string name="delete_selected_title">سڕینەوەی هەڵبژێردراو</string>
+    <string name="delete_selected_message">ئایا دڵنیایت لە سڕینەوەی تۆمارە هەڵبژێردراوەکان؟ ئەم کارە ناگەڕێتەوە</string>
+    <plurals name="recording_selection_count">
+        <item quantity="one">%d هەڵبژێردرا</item>
+        <item quantity="other">%d هەڵبژێردرا</item>
+    </plurals>
+</resources>

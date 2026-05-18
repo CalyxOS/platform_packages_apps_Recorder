@@ -4,16 +4,16 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <string name="app_name">ஒலிபதிப்பி</string>
+    <string name="app_name">ஒலிப்பதிவி</string>
     <string name="share">பகிர்க</string>
-    <string name="share_selected">தேர்ந்தவற்றைப் பகிர்க</string>
+    <string name="share_selected">தேர்ந்தவை பகிர்க</string>
     <string name="stop">நிறுத்துக</string>
     <string name="play">இயக்குக</string>
     <string name="pause">இடைநிறுத்துக</string>
     <string name="resume">தொடர்க</string>
     <string name="delete">நீக்குக</string>
-    <string name="delete_all">யாவும் அழிக்க</string>
-    <string name="delete_selected">தேர்ந்தவற்றை அழிக்க</string>
+    <string name="delete_all">யாவும் நீக்குக</string>
+    <string name="delete_selected">தேர்ந்தவை நீக்குக</string>
     <string name="cancel">விலக்குக</string>
     <string name="rename">மறுபெயரிடுக</string>
     <string name="delete_title">பதிவை நீக்குதல்</string>
