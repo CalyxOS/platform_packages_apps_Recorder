@@ -44,7 +44,7 @@
     <string name="dialog_permissions_location">تۆمارکەر پێویستی بە مۆڵەتی شوێن هەیە بۆ ئەوەی بە شێوەیەکی خۆکار تۆمارەکانت پۆلێن بکات</string>
     <string name="dialog_permissions_ask">دووبارە بپرسەوە</string>
     <string name="dialog_permissions_dismiss">لادان</string>
-    <string name="snack_permissions_no_permission">مۆڵەتە پێویستەکان ڕەتکراونەتەوە، لە ڕێکخستنەکانی ئەپەوە چالاکیان بکە بۆ دەستپێکردنی تۆمارکردن</string>
+    <string name="snack_permissions_no_permission">مۆڵەتە پێویستەکان ڕەتکراونەتەوە، لە ڕێکخستنەکانی بەرنامەوە چالاکیان بکە بۆ دەستپێکردنی تۆمارکردن</string>
     <string name="snack_permissions_no_permission_location">مۆڵەتی شوێن ڕەتکراوەتەوە، لە ڕێکخستنەکان چالاکی بکە بۆ دیاریکردنی شوێنی تۆمارەکانت</string>
     <string name="main_sound_action">تۆمارکردنی دەنگ</string>
     <string name="list_title">تۆمارەکانم</string>
